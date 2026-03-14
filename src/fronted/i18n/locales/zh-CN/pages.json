@@ -46,7 +46,29 @@
     },
     "sentenceSplitter": {
         "title": "切分长视频",
-        "description": "将长视频与字幕按时间点拆分为更小片段"
+        "description": "将长视频与字幕按时间戳拆分为更小的片段",
+        "inputLabel": "切分配置",
+        "inputPlaceholder": "每行输入一个时间戳和标题，格式：HH:MM:SS 标题",
+        "filesLabel": "视频文件",
+        "clickToSelect": "点击以选择文件",
+        "loadExample": "加载示例配置",
+        "aiFormat": "使用 AI 格式化输入",
+        "selectFile": "选择文件",
+        "splitAll": "开始切分",
+        "splitting": "切分中...",
+        "splitSuccess": "切分完成",
+        "splitFailed": "切分失败",
+        "tabs": {
+            "preview": "预览",
+            "quickSelect": "快捷选择"
+        },
+        "preview": {
+            "startTime": "开始时间",
+            "endTime": "结束时间",
+            "title": "标题",
+            "empty": "暂无切分配置，在左侧输入时间戳开始",
+            "shortDuration": "时间间隔小于 1 分钟"
+        }
     },
     "subtitleWorkspace": {
         "title": "字幕转录",

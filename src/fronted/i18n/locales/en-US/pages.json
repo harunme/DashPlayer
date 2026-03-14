@@ -45,8 +45,30 @@
         "delete": "Delete"
     },
     "sentenceSplitter": {
-        "title": "Split long videos",
-        "description": "Split long videos and subtitles into smaller segments by timestamps"
+        "title": "Split Long Videos",
+        "description": "Split long videos and subtitles into smaller segments by timestamps",
+        "inputLabel": "Split Configuration",
+        "inputPlaceholder": "Enter one timestamp and title per line, e.g.: 00:01:30 Chapter Title",
+        "filesLabel": "Video Files",
+        "clickToSelect": "Click to select a file",
+        "loadExample": "Load example configuration",
+        "aiFormat": "Format input with AI",
+        "selectFile": "Select File",
+        "splitAll": "Split All",
+        "splitting": "Splitting...",
+        "splitSuccess": "Split Finished",
+        "splitFailed": "Split Failed",
+        "tabs": {
+            "preview": "Preview",
+            "quickSelect": "Quick Select"
+        },
+        "preview": {
+            "startTime": "Start",
+            "endTime": "End",
+            "title": "Title",
+            "empty": "No configuration yet — enter timestamps on the left",
+            "shortDuration": "Interval less than 1 minute"
+        }
     },
     "subtitleWorkspace": {
         "title": "Subtitle transcription",
