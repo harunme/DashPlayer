@@ -315,12 +315,12 @@ export default function VideoPlayerPane({
   if (!clip) {
     // 空白骨架屏幕
     return (
-      <div className="rounded-2xl border border-border bg-card/90 p-6 shadow-sm">
+      <div className="rounded-xl bg-muted/30 p-4">
         <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
           {/* 视频播放器骨架 */}
           <div>
             <AspectRatio ratio={16 / 9}>
-              <div className="w-full h-full bg-muted rounded-xl flex items-center justify-center">
+              <div className="w-full h-full bg-muted rounded-lg flex items-center justify-center">
                 <div className="text-center text-muted-foreground">
                   <div className="w-16 h-16 bg-muted/70 rounded-full mx-auto mb-3 flex items-center justify-center">
                     <div className="w-8 h-8">▶</div>
@@ -349,11 +349,11 @@ export default function VideoPlayerPane({
   }
 
   return (
-    <div className="rounded-2xl border border-border bg-card/90 p-6 shadow-sm">
+    <div className="rounded-xl bg-muted/30 p-4">
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
         <div>
           <AspectRatio ratio={16 / 9}>
-            <div className="w-full rounded-xl overflow-hidden border border-border/60 bg-black">
+            <div className="w-full rounded-lg overflow-hidden bg-black">
               <PlayerEngineV2
                 width="100%"
                 height="100%"

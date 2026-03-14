@@ -83,9 +83,9 @@ export default function WordSidebar({
 
   
   return (
-    <div className="h-full flex flex-col rounded-2xl border border-border bg-card/90 shadow-sm backdrop-blur">
+    <div className="h-full flex flex-col">
       {/* 顶部工具栏 */}
-      <div className="p-5 border-b border-border/60 space-y-3">
+      <div className="pb-3 space-y-3">
         <div className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground w-4 h-4" />
           <Input
@@ -170,7 +170,7 @@ export default function WordSidebar({
       </div>
 
       {/* 列表区域：使用虚拟列表，占满剩余高度 */}
-      <div className="flex-1 min-h-0 p-4">
+      <div className="flex-1 min-h-0 pt-2">
         {loading ? (
           <div className="flex items-center justify-center h-32 text-sm text-muted-foreground">
             <div className="flex items-center gap-2">
@@ -196,14 +196,14 @@ export default function WordSidebar({
                   role="button"
                   tabIndex={0}
                   className={[
-                    'p-2 rounded-lg cursor-pointer transition-all text-sm leading-tight mb-1 border border-transparent',
+                    'p-2 rounded-lg cursor-pointer transition-all text-sm leading-tight mb-1',
                     active
-                      ? 'bg-primary text-primary-foreground shadow-sm border-primary/80'
+                      ? 'bg-primary text-primary-foreground'
                       : 'hover:bg-muted'
                   ].join(' ')}
                   onClick={() => onWordClick(word)}
                   onKeyDown={(e) => {
-                    if (e.key === 'Enter' || e.key === ' ') {
+                    if (e.key === 'Enter') {
                       e.preventDefault();
                       onWordClick(word);
                     }

@@ -15,7 +15,7 @@
         }
     },
     "vocabularyStudio": {
-        "title": "词汇工坊",
+        "title": "词汇学习工坊",
         "description": "聚焦生词片段，快速定位并回看关键语境",
         "recover": {
             "loading": "正在从本地恢复词汇工坊片段...",
