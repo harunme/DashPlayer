@@ -34,8 +34,15 @@
         }
     },
     "formatConverter": {
-        "title": "生成兼容播放版本",
-        "description": "解决无声或无法播放等问题（必要时仅转音频，并尝试提取字幕）"
+        "title": "修复播放问题",
+        "description": "自动转换视频格式，解决无声、卡顿或无法播放等兼容性问题",
+        "empty": {
+            "title": "暂无待修复的视频",
+            "guide": "点击右上角按钮添加视频文件，支持单文件与批量文件夹"
+        },
+        "fix": "修复",
+        "cancel": "取消",
+        "delete": "删除"
     },
     "sentenceSplitter": {
         "title": "切分长视频",

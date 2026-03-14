@@ -34,8 +34,15 @@
         }
     },
     "formatConverter": {
-        "title": "Generate compatible playback versions",
-        "description": "Fix silent or unplayable media by converting to a more compatible format"
+        "title": "Fix Playback Issues",
+        "description": "Convert videos to a compatible format and fix no audio, stuttering, or unplayable issues",
+        "empty": {
+            "title": "No videos to fix yet",
+            "guide": "Click the buttons above to add video files or a folder for batch processing"
+        },
+        "fix": "Fix",
+        "cancel": "Cancel",
+        "delete": "Delete"
     },
     "sentenceSplitter": {
         "title": "Split long videos",
