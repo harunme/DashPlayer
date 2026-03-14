@@ -19,6 +19,28 @@ import { useTranslation as useI18nTranslation } from 'react-i18next';
 
 const api = backendClient;
 
+/**
+ * 将服务凭据中的原始模型文本解析为下拉可用项。
+ *
+ * 解析规则：
+ * - 同时支持逗号与换行分隔；
+ * - 会裁剪首尾空白并移除空项；
+ * - 当结果为空时回退到默认模型，避免下拉框无可选项。
+ */
+const parseAvailableModels = (rawModels: string | undefined): string[] => {
+    const parsed = (rawModels ?? '')
+        .split(/[\n,]/)
+        .map((item) => item.trim())
+        .filter((item) => item.length > 0);
+
+    const deduped = Array.from(new Set(parsed));
+    if (deduped.length === 0) {
+        return ['gpt-5.2'];
+    }
+
+    return deduped;
+};
+
 const EngineSelectionSetting = () => {
     const { t } = useI18nTranslation('settings');
     const navigate = useNavigate();
@@ -75,9 +97,7 @@ const EngineSelectionSetting = () => {
     const subtitleMode = watch('openai.subtitleTranslationMode');
     const subtitleEngine = watch('providers.subtitleTranslationEngine');
     const transcriptionEngine = watch('providers.transcriptionEngine');
-    const availableModels = credentialSettings?.openai.models?.length
-        ? credentialSettings.openai.models
-        : ['gpt-5.2'];
+    const availableModels = parseAvailableModels(credentialSettings?.openai.models);
 
     const whisperSelectedModelSize = credentialSettings?.whisper.modelSize === 'large' ? 'large' : 'base';
     const whisperModelReady = whisperStatus?.whisper?.[whisperSelectedModelSize]?.exists === true;

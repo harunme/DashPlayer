@@ -58,6 +58,14 @@ export default class SettingServiceImpl implements SettingService {
         return 'none';
     }
 
+    /**
+     * 将用户输入的模型列表文本解析为可用模型数组。
+     *
+     * 解析规则：
+     * - 同时支持逗号与换行分隔；
+     * - 会去掉首尾空白并移除空项；
+     * - 当结果为空时回退到默认模型，避免功能设置页出现空选项。
+     */
     private parseOpenAiModels(raw: string): string[] {
         const parsed = raw
             .split(/[\n,]/)
@@ -71,11 +79,14 @@ export default class SettingServiceImpl implements SettingService {
         return deduped;
     }
 
-    private serializeOpenAiModels(models: string[]): string {
-        return this.parseOpenAiModels(models.join(','))
-            .join(',');
-    }
-
+    /**
+     * 根据当前可用模型列表兜底功能级模型选择。
+     *
+     * 行为说明：
+     * - 若候选模型仍在可用列表中，则直接保留；
+     * - 若候选模型失效，则回退到列表首项；
+     * - 若列表为空，则使用默认模型。
+     */
     private resolveFeatureModel(candidate: string, availableModels: string[]): string {
         if (availableModels.includes(candidate)) {
             return candidate;
@@ -103,12 +114,19 @@ export default class SettingServiceImpl implements SettingService {
         return Promise.resolve();
     }
 
+    /**
+     * 查询服务凭据设置。
+     *
+     * 返回说明：
+     * - `openai.models` 直接返回存储中的原始文本，保留用户输入格式；
+     * - 其他字段按当前存储值映射为设置页表单结构。
+     */
     public async queryServiceCredentials(): Promise<ServiceCredentialSettingVO> {
         return {
             openai: {
                 key: this.getValue('apiKeys.openAi.key'),
                 endpoint: this.getValue('apiKeys.openAi.endpoint'),
-                models: this.parseOpenAiModels(this.getValue('models.openai.available')),
+                models: this.getValue('models.openai.available'),
             },
             tencent: {
                 secretId: this.getValue('apiKeys.tencent.secretId'),
@@ -126,11 +144,19 @@ export default class SettingServiceImpl implements SettingService {
         };
     }
 
+    /**
+     * 更新服务凭据设置。
+     *
+     * 行为说明：
+     * - `openai.models` 原样写回存储，避免编辑过程中丢失逗号、换行等格式；
+     * - 真正用于路由和功能模型兜底时，再临时解析模型列表文本。
+     */
     public async updateServiceCredentials(settings: ServiceCredentialSettingVO): Promise<void> {
-        const models = this.parseOpenAiModels((settings.openai.models ?? []).join(','));
+        const rawModels = settings.openai.models ?? '';
+        const models = this.parseOpenAiModels(rawModels);
         await this.setValue('apiKeys.openAi.key', settings.openai.key);
         await this.setValue('apiKeys.openAi.endpoint', settings.openai.endpoint);
-        await this.setValue('models.openai.available', this.serializeOpenAiModels(models));
+        await this.setValue('models.openai.available', rawModels);
 
         const sentenceLearningModel = this.resolveFeatureModel(this.getValue('models.openai.sentenceLearning'), models);
         const subtitleTranslationModel = this.resolveFeatureModel(this.getValue('models.openai.subtitleTranslation'), models);
