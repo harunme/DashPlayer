@@ -71,8 +71,31 @@
         }
     },
     "subtitleWorkspace": {
-        "title": "Subtitle transcription",
-        "description": "Generate subtitles for videos with AI speech recognition"
+        "title": "Subtitle Generator",
+        "description": "Generate subtitles for videos with AI speech recognition",
+        "table": {
+            "videoColumn": "Video",
+            "statusColumn": "Status",
+            "actionColumn": "Actions",
+            "empty": "No videos in queue — select files on the left to get started"
+        },
+        "status": {
+            "notStarted": "Not started",
+            "initializing": "Initializing...",
+            "processing": "Processing...",
+            "done": "Done",
+            "doneWithDuration": "Done ({{duration}}s)",
+            "cancelled": "Cancelled",
+            "failed": "Failed",
+            "unknown": "Unknown",
+            "cancelling": "Cancelling..."
+        },
+        "actions": {
+            "transcribe": "Transcribe",
+            "delete": "Delete",
+            "cancel": "Cancel",
+            "cancelledMessage": "Transcription cancelled"
+        }
     }
 }
 

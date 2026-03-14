@@ -71,8 +71,31 @@
         }
     },
     "subtitleWorkspace": {
-        "title": "字幕转录",
-        "description": "使用 AI 语音识别为视频自动生成字幕"
+        "title": "视频字幕生成",
+        "description": "使用 AI 语音识别为视频自动生成字幕",
+        "table": {
+            "videoColumn": "视频",
+            "statusColumn": "状态",
+            "actionColumn": "操作",
+            "empty": "暂无待转录的视频，从左侧选择文件加入队列"
+        },
+        "status": {
+            "notStarted": "未开始",
+            "initializing": "初始化中...",
+            "processing": "处理中...",
+            "done": "完成",
+            "doneWithDuration": "完成（{{duration}}s）",
+            "cancelled": "已取消",
+            "failed": "失败",
+            "unknown": "未知状态",
+            "cancelling": "取消中..."
+        },
+        "actions": {
+            "transcribe": "转录",
+            "delete": "删除",
+            "cancel": "取消",
+            "cancelledMessage": "转录任务已取消"
+        }
     }
 }
 
