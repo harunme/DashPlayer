@@ -220,29 +220,6 @@ export default class VideoLearningServiceImpl implements VideoLearningService {
 
         return queuedTasks.length;
     }
-
-    /**
-     * 将单个学习片段标记为取消任务。
-     *
-     * @param srtKey 字幕缓存键。
-     * @param indexInSrt 字幕行索引。
-     */
-    public async cancelAddLearningClip(srtKey: string, indexInSrt: number): Promise<void> {
-        const clipKey = this.mapToClipKey(srtKey, indexInSrt);
-        const existingTask = this.taskQueue.get(clipKey);
-        const cachedSrt = this.getSrtFromCache(srtKey);
-        this.taskQueue.set(clipKey, {
-            videoPath: '',
-            srtKey,
-            indexInSrt,
-            matchedWords: [],
-            clipKey,
-            operation: 'cancel',
-            srtPath: existingTask?.srtPath ?? cachedSrt?.filePath,
-        });
-
-    }
-
     /**
      * 统计全局自动裁切队列中的新增任务数量。
      *

@@ -16,14 +16,6 @@ export interface VideoLearningService {
     autoClip(videoPath: string, srtKey: string, srtPath?: string): Promise<void>;
 
     /**
-     * 取消添加学习片段
-     * @param srtKey - 字幕文件键
-     * @param indexInSrt - 字幕索引
-     * @returns Promise<void>
-     */
-    cancelAddLearningClip(srtKey: string, indexInSrt: number): Promise<void>;
-
-    /**
      * 删除学习片段
      * @param key - 片段键
      * @returns Promise<void>

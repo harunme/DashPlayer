@@ -252,10 +252,6 @@ interface VideoLearningDef {
         params: void,
         return: { success: boolean; clearedCount: number }
     };
-    'video-learning/cancel-add': {
-        params: { srtKey: string; indexInSrt: number },
-        return: { success: boolean }
-    };
     'video-learning/delete': {
         params: { key: string },
         return: { success: boolean }

@@ -32,12 +32,6 @@ export default class VideoLearningApiController implements Controller {
             return { success: true, clearedCount };
         });
 
-        registerRoute('video-learning/cancel-add', async (params) => {
-            const { srtKey, indexInSrt } = params;
-            await this.videoLearningService.cancelAddLearningClip(srtKey, indexInSrt);
-            return { success: true };
-        });
-
         registerRoute('video-learning/delete', async (params) => {
             const { key } = params;
             await this.videoLearningService.deleteLearningClip(key);
