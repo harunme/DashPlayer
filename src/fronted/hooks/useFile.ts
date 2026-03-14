@@ -9,7 +9,6 @@ type UseFileState = {
     subtitlePath: string | null;
     videoLoaded: boolean;
     srtHash: string | null;
-    clipTaskRequestedAtByKey: Record<string, number>;
 };
 
 type UseFileActions = {
@@ -17,8 +16,6 @@ type UseFileActions = {
     loadedVideo: (file: string) => void;
     clear: () => void;
     clearSrt: () => void;
-    markClipTaskRequested: (key: string) => void;
-    clearClipTaskRequested: (key: string) => void;
 };
 
 const useFile = create(
@@ -29,7 +26,6 @@ const useFile = create(
         videoId: null,
         projectId: null,
         srtHash: null,
-        clipTaskRequestedAtByKey: {},
         updateFile: (ph: string) => {
             if (MediaUtil.isMedia(ph)) {
                 set({
@@ -61,7 +57,6 @@ const useFile = create(
                 videoLoaded: false,
                 videoId: null,
                 srtHash: null,
-                clipTaskRequestedAtByKey: {}
             });
         },
         clearSrt: () => {
@@ -70,24 +65,6 @@ const useFile = create(
                 srtHash: null,
             });
         },
-        markClipTaskRequested: (key: string) => {
-            set((s) => ({
-                clipTaskRequestedAtByKey: {
-                    ...s.clipTaskRequestedAtByKey,
-                    [key]: Date.now(),
-                },
-            }));
-        },
-        clearClipTaskRequested: (key: string) => {
-            set((s) => {
-                if (!s.clipTaskRequestedAtByKey[key]) {
-                    return s;
-                }
-                const next = { ...s.clipTaskRequestedAtByKey };
-                delete next[key];
-                return { clipTaskRequestedAtByKey: next };
-            });
-        }
     }))
 );
 

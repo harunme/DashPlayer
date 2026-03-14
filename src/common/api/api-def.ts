@@ -15,7 +15,7 @@ import {ClipQuery, SimpleClipQuery} from '@/common/api/dto';
 import {ClipMeta, OssBaseMeta} from '@/common/types/clipMeta';
 import WatchHistoryVO from '@/common/types/WatchHistoryVO';
 import {VideoLearningClipPage} from '@/common/types/vo/VideoLearningClipVO';
-import {VideoLearningClipStatusVO} from '@/common/types/vo/VideoLearningClipStatusVO';
+import { GlobalVideoLearningClipQueueStatusVO, VideoLearningClipStatusVO } from '@/common/types/vo/VideoLearningClipStatusVO';
 import { ChatStartParams, ChatStartResult, ChatWelcomeParams } from '@/common/types/chat';
 import { AnalysisStartParams, AnalysisStartResult } from '@/common/types/analysis';
 import { ServiceCredentialSettingVO } from '@/common/types/vo/service-credentials-setting-vo';
@@ -240,9 +240,17 @@ interface VideoLearningDef {
         params: { videoPath: string; srtKey: string; srtPath?: string },
         return: VideoLearningClipStatusVO
     };
+    'video-learning/clip-queue-status': {
+        params: void,
+        return: GlobalVideoLearningClipQueueStatusVO
+    };
     'video-learning/auto-clip': {
         params: { videoPath: string; srtKey: string; srtPath?: string },
         return: { success: boolean }
+    };
+    'video-learning/cancel-auto-clip-all': {
+        params: void,
+        return: { success: boolean; clearedCount: number }
     };
     'video-learning/cancel-add': {
         params: { srtKey: string; indexInSrt: number },

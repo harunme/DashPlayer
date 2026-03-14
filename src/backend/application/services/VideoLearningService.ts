@@ -1,6 +1,6 @@
 import { SimpleClipQuery } from '@/common/api/dto';
 import { VideoLearningClipPage } from '@/common/types/vo/VideoLearningClipVO';
-import {VideoLearningClipStatusVO} from "@/common/types/vo/VideoLearningClipStatusVO";
+import { GlobalVideoLearningClipQueueStatusVO, VideoLearningClipStatusVO } from '@/common/types/vo/VideoLearningClipStatusVO';
 
 /**
  * VideoLearningService
@@ -58,6 +58,18 @@ export interface VideoLearningService {
      * @returns Promise<{status: 'pending' | 'in_progress' | 'completed', pendingCount?: number, inProgressCount?: number, completedCount?: number}>
      */
     detectClipStatus(videoPath: string, srtKey: string, srtPath?: string): Promise<VideoLearningClipStatusVO>;
+
+    /**
+     * 获取全局自动裁切队列状态。
+     * @returns 当前全局自动裁切队列快照
+     */
+    getGlobalClipQueueStatus(): Promise<GlobalVideoLearningClipQueueStatusVO>;
+
+    /**
+     * 清空尚未完成的自动裁切队列。
+     * @returns 被清理的排队任务数量
+     */
+    cancelAllAutoClipTasks(): Promise<number>;
 
     /**
      * 词库更新后清理分析缓存
