@@ -11,7 +11,10 @@
         "testing": "测试中...",
         "downloadDone": "下载完成",
         "downloadFailed": "下载失败",
-        "downloading": "下载中..."
+        "downloading": "下载中...",
+        "download": "下载",
+        "ready": "就绪",
+        "notDownloaded": "未下载"
     },
     "sections": {
         "shortcut": "快捷键",

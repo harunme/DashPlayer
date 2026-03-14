@@ -1,12 +1,11 @@
 import React from 'react';
 import { useForm } from 'react-hook-form';
 import useSWR from 'swr';
-import { Book, Bot, Cpu, Languages, ShieldCheck, TestTube } from 'lucide-react';
+import { Book, Bot, CheckCircle2, Cpu, Download, Languages, ShieldCheck, TestTube, XCircle } from 'lucide-react';
 import { Button } from '@/fronted/components/ui/button';
 import { Input } from '@/fronted/components/ui/input';
 import { Label } from '@/fronted/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/fronted/components/ui/select';
-import { Checkbox } from '@/fronted/components/ui/checkbox';
 import { Progress } from '@/fronted/components/ui/progress';
 import { Textarea } from '@/fronted/components/ui/textarea';
 import SettingsPageShell from '@/fronted/pages/setting/components/form/SettingsPageShell';
@@ -35,8 +34,6 @@ const ServiceCredentialSetting = () => {
     });
 
     register('whisper.modelSize');
-    register('whisper.enableVad');
-    register('whisper.vadModel');
     register('openai.models');
 
     const [saving, setSaving] = React.useState(false);
@@ -44,6 +41,7 @@ const ServiceCredentialSetting = () => {
     const [testingOpenAi, setTestingOpenAi] = React.useState(false);
     const [testingTencent, setTestingTencent] = React.useState(false);
     const [testingYoudao, setTestingYoudao] = React.useState(false);
+    const [testResults, setTestResults] = React.useState<Record<string, { success: boolean; message: string } | null>>({});
     const [whisperModelStatus, setWhisperModelStatus] = React.useState<WhisperModelStatusVO | null>(null);
     const [downloadingWhisperModel, setDownloadingWhisperModel] = React.useState(false);
     const [downloadingVadModel, setDownloadingVadModel] = React.useState(false);
@@ -132,6 +130,7 @@ const ServiceCredentialSetting = () => {
         }[provider];
 
         setTesting(true);
+        setTestResults((prev) => ({ ...prev, [provider]: null }));
         try {
             const routeMap: Record<typeof provider, 'settings/service-credentials/test-openai' | 'settings/service-credentials/test-tencent' | 'settings/service-credentials/test-youdao'> = {
                 openai: 'settings/service-credentials/test-openai',
@@ -139,17 +138,12 @@ const ServiceCredentialSetting = () => {
                 youdao: 'settings/service-credentials/test-youdao',
             };
             const result = await api.call(routeMap[provider]);
-            toast({
-                variant: result.success ? 'default' : 'destructive',
-                title: result.success ? t('common.testSuccess') : t('common.testFailed'),
-                description: result.message,
-            });
+            setTestResults((prev) => ({ ...prev, [provider]: result }));
         } catch (error) {
-            toast({
-                variant: 'destructive',
-                title: t('common.testFailed'),
-                description: error instanceof Error ? error.message : String(error),
-            });
+            setTestResults((prev) => ({
+                ...prev,
+                [provider]: { success: false, message: error instanceof Error ? error.message : String(error) },
+            }));
         } finally {
             setTesting(false);
         }
@@ -207,25 +201,31 @@ const ServiceCredentialSetting = () => {
                 description={t('serviceCredentials.description')}
                 contentClassName="space-y-6"
             >
-                <div className="rounded-lg border border-border/70 bg-muted/30 p-4 text-sm text-muted-foreground">
-                    <div className="flex items-start gap-2">
-                        <ShieldCheck className="w-4 h-4 mt-0.5" />
-                        {t('serviceCredentials.intro')}
-                    </div>
+                <div className="flex items-start gap-2 text-sm text-muted-foreground">
+                    <ShieldCheck className="w-4 h-4 mt-0.5 shrink-0" />
+                    {t('serviceCredentials.intro')}
                 </div>
 
-                <div className="space-y-4 rounded-xl border border-border/70 bg-background p-5">
+                {/* OpenAI */}
+                <div className="rounded-xl border border-border/70 p-5 space-y-4">
                     <div className="flex items-center justify-between gap-3">
                         <div>
                             <div className="flex items-center gap-2 text-sm font-semibold"><Bot className="w-4 h-4" />OpenAI</div>
                             <div className="text-xs text-muted-foreground mt-1">{t('serviceCredentials.openai.description')}</div>
                         </div>
-                        <Button type="button" variant="outline" size="sm" onClick={() => testProvider('openai').catch(() => null)} disabled={testingOpenAi}>
-                            <TestTube className="w-4 h-4 mr-2" />
-                            {testingOpenAi ? t('common.testing') : t('common.testConnection')}
-                        </Button>
+                        <div className="flex items-center gap-2 shrink-0">
+                            {testResults.openai && (
+                                <span className={`flex items-center gap-1 text-xs ${testResults.openai.success ? 'text-green-600' : 'text-destructive'}`}>
+                                    {testResults.openai.success ? <CheckCircle2 className="w-3.5 h-3.5" /> : <XCircle className="w-3.5 h-3.5" />}
+                                    {testResults.openai.success ? t('common.testSuccess') : testResults.openai.message}
+                                </span>
+                            )}
+                            <Button type="button" variant="outline" size="sm" onClick={() => testProvider('openai').catch(() => null)} disabled={testingOpenAi}>
+                                <TestTube className="w-4 h-4 mr-2" />
+                                {testingOpenAi ? t('common.testing') : t('common.testConnection')}
+                            </Button>
+                        </div>
                     </div>
-
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div className="space-y-2 md:col-span-2">
                             <Label>API Key</Label>
@@ -250,18 +250,26 @@ const ServiceCredentialSetting = () => {
                     </div>
                 </div>
 
-                <div className="space-y-4 rounded-xl border border-border/70 bg-background p-5">
+                {/* Tencent */}
+                <div className="rounded-xl border border-border/70 p-5 space-y-4">
                     <div className="flex items-center justify-between gap-3">
                         <div>
                             <div className="flex items-center gap-2 text-sm font-semibold"><Languages className="w-4 h-4" />{t('serviceCredentials.tencent.title')}</div>
                             <div className="text-xs text-muted-foreground mt-1">{t('serviceCredentials.tencent.description')}</div>
                         </div>
-                        <Button type="button" variant="outline" size="sm" onClick={() => testProvider('tencent').catch(() => null)} disabled={testingTencent}>
-                            <TestTube className="w-4 h-4 mr-2" />
-                            {testingTencent ? t('common.testing') : t('common.testConnection')}
-                        </Button>
+                        <div className="flex items-center gap-2 shrink-0">
+                            {testResults.tencent && (
+                                <span className={`flex items-center gap-1 text-xs ${testResults.tencent.success ? 'text-green-600' : 'text-destructive'}`}>
+                                    {testResults.tencent.success ? <CheckCircle2 className="w-3.5 h-3.5" /> : <XCircle className="w-3.5 h-3.5" />}
+                                    {testResults.tencent.success ? t('common.testSuccess') : testResults.tencent.message}
+                                </span>
+                            )}
+                            <Button type="button" variant="outline" size="sm" onClick={() => testProvider('tencent').catch(() => null)} disabled={testingTencent}>
+                                <TestTube className="w-4 h-4 mr-2" />
+                                {testingTencent ? t('common.testing') : t('common.testConnection')}
+                            </Button>
+                        </div>
                     </div>
-
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div className="space-y-2">
                             <Label>SecretId</Label>
@@ -274,18 +282,26 @@ const ServiceCredentialSetting = () => {
                     </div>
                 </div>
 
-                <div className="space-y-4 rounded-xl border border-border/70 bg-background p-5">
+                {/* YouDao */}
+                <div className="rounded-xl border border-border/70 p-5 space-y-4">
                     <div className="flex items-center justify-between gap-3">
                         <div>
                             <div className="flex items-center gap-2 text-sm font-semibold"><Book className="w-4 h-4" />{t('serviceCredentials.youdao.title')}</div>
                             <div className="text-xs text-muted-foreground mt-1">{t('serviceCredentials.youdao.description')}</div>
                         </div>
-                        <Button type="button" variant="outline" size="sm" onClick={() => testProvider('youdao').catch(() => null)} disabled={testingYoudao}>
-                            <TestTube className="w-4 h-4 mr-2" />
-                            {testingYoudao ? t('common.testing') : t('common.testConnection')}
-                        </Button>
+                        <div className="flex items-center gap-2 shrink-0">
+                            {testResults.youdao && (
+                                <span className={`flex items-center gap-1 text-xs ${testResults.youdao.success ? 'text-green-600' : 'text-destructive'}`}>
+                                    {testResults.youdao.success ? <CheckCircle2 className="w-3.5 h-3.5" /> : <XCircle className="w-3.5 h-3.5" />}
+                                    {testResults.youdao.success ? t('common.testSuccess') : testResults.youdao.message}
+                                </span>
+                            )}
+                            <Button type="button" variant="outline" size="sm" onClick={() => testProvider('youdao').catch(() => null)} disabled={testingYoudao}>
+                                <TestTube className="w-4 h-4 mr-2" />
+                                {testingYoudao ? t('common.testing') : t('common.testConnection')}
+                            </Button>
+                        </div>
                     </div>
-
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div className="space-y-2">
                             <Label>{t('serviceCredentials.youdao.appId')}</Label>
@@ -298,69 +314,91 @@ const ServiceCredentialSetting = () => {
                     </div>
                 </div>
 
-                <div className="space-y-4 rounded-xl border border-border/70 bg-background p-5">
+                {/* Whisper */}
+                <div className="rounded-xl border border-border/70 p-5 space-y-4">
                     <div>
                         <div className="flex items-center gap-2 text-sm font-semibold"><Cpu className="w-4 h-4" />{t('serviceCredentials.whisper.title')}</div>
                         <div className="text-xs text-muted-foreground mt-1">{t('serviceCredentials.whisper.description')}</div>
                     </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div className="space-y-2">
-                            <Label>{t('serviceCredentials.whisper.modelSize')}</Label>
-                            <Select
-                                value={watch('whisper.modelSize')}
-                                onValueChange={(value: 'base' | 'large') => setValue('whisper.modelSize', value, { shouldDirty: true })}
-                            >
-                                <SelectTrigger><SelectValue /></SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="base">base</SelectItem>
-                                    <SelectItem value="large">large</SelectItem>
-                                </SelectContent>
-                            </Select>
-                        </div>
-
-                        <div className="space-y-2">
-                            <Label>{t('serviceCredentials.whisper.vadModel')}</Label>
-                            <Select
-                                value={watch('whisper.vadModel')}
-                                onValueChange={(value: 'silero-v5.1.2' | 'silero-v6.2.0') => setValue('whisper.vadModel', value, { shouldDirty: true })}
-                            >
-                                <SelectTrigger><SelectValue /></SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="silero-v6.2.0">silero-v6.2.0</SelectItem>
-                                    <SelectItem value="silero-v5.1.2">silero-v5.1.2</SelectItem>
-                                </SelectContent>
-                            </Select>
-                        </div>
+                    <div className="space-y-2">
+                        <Label>{t('serviceCredentials.whisper.modelSize')}</Label>
+                        <Select
+                            value={watch('whisper.modelSize')}
+                            onValueChange={(value: 'base' | 'large') => setValue('whisper.modelSize', value, { shouldDirty: true })}
+                        >
+                            <SelectTrigger><SelectValue /></SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="base">base</SelectItem>
+                                <SelectItem value="large">large</SelectItem>
+                            </SelectContent>
+                        </Select>
                     </div>
 
-                    <div className="flex items-center gap-2">
-                        <Checkbox checked={watch('whisper.enableVad')} onCheckedChange={(checked) => setValue('whisper.enableVad', checked === true, { shouldDirty: true })} />
-                        <Label>{t('serviceCredentials.whisper.enableVad')}</Label>
-                    </div>
-
-                    <div className="rounded-md border border-border p-3 space-y-3">
-                        <div className="text-sm text-muted-foreground">
-                            {t('serviceCredentials.whisper.statusPrefix')}
-                            {whisperModelStatus?.whisper?.base?.exists ? t('serviceCredentials.whisper.baseReady') : t('serviceCredentials.whisper.baseMissing')}
-                            {whisperModelStatus?.whisper?.large?.exists ? t('serviceCredentials.whisper.largeReady') : t('serviceCredentials.whisper.largeMissing')}
+                    <div className="rounded-lg border border-border/60 divide-y divide-border/60 overflow-hidden">
+                        {/* Whisper model row */}
+                        <div className="px-4 py-3 space-y-3">
+                            <div className="flex items-center justify-between gap-3">
+                                <div className="flex items-center gap-3 min-w-0">
+                                    <span className="text-sm font-medium">Whisper {whisperModelSize}</span>
+                                    {whisperModelStatus?.whisper?.[whisperModelSize === 'large' ? 'large' : 'base']?.exists ? (
+                                        <span className="inline-flex items-center gap-1 rounded-full bg-green-500/10 px-2 py-0.5 text-xs text-green-600">
+                                            <CheckCircle2 className="w-3 h-3" />
+                                            {t('common.ready')}
+                                        </span>
+                                    ) : (
+                                        <span className="inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">
+                                            {t('common.notDownloaded')}
+                                        </span>
+                                    )}
+                                </div>
+                                <Button
+                                    type="button"
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => downloadSelectedWhisperModel().catch(() => null)}
+                                    disabled={downloadingWhisperModel}
+                                >
+                                    <Download className="w-3.5 h-3.5 mr-1.5" />
+                                    {downloadingWhisperModel ? t('common.downloading') : t('common.download')}
+                                </Button>
+                            </div>
+                            {downloadingWhisperModel && (
+                                <Progress value={downloadProgressByKey[`whisper:${whisperModelSize}`]?.percent ?? 0} className="h-1.5" />
+                            )}
                         </div>
-                        {downloadingWhisperModel && (
-                            <Progress value={downloadProgressByKey[`whisper:${whisperModelSize}`]?.percent ?? 0} />
-                        )}
-                        <Button type="button" variant="outline" onClick={() => downloadSelectedWhisperModel().catch(() => null)} disabled={downloadingWhisperModel}>
-                            {downloadingWhisperModel ? t('common.downloading') : t('serviceCredentials.whisper.downloadCurrent')}
-                        </Button>
-                    </div>
 
-                    <div className="rounded-md border border-border p-3 space-y-3">
-                        <div className="text-sm text-muted-foreground">
-                            {t('serviceCredentials.whisper.vadStatusPrefix')}{whisperModelStatus?.vad?.['silero-v6.2.0']?.exists ? t('serviceCredentials.whisper.vadReady') : t('serviceCredentials.whisper.vadMissing')}
+                        {/* VAD model row */}
+                        <div className="px-4 py-3 space-y-3">
+                            <div className="flex items-center justify-between gap-3">
+                                <div className="flex items-center gap-3 min-w-0">
+                                    <span className="text-sm font-medium">VAD silero-v6.2.0</span>
+                                    {whisperModelStatus?.vad?.['silero-v6.2.0']?.exists ? (
+                                        <span className="inline-flex items-center gap-1 rounded-full bg-green-500/10 px-2 py-0.5 text-xs text-green-600">
+                                            <CheckCircle2 className="w-3 h-3" />
+                                            {t('common.ready')}
+                                        </span>
+                                    ) : (
+                                        <span className="inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">
+                                            {t('common.notDownloaded')}
+                                        </span>
+                                    )}
+                                </div>
+                                <Button
+                                    type="button"
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => downloadSelectedVadModel().catch(() => null)}
+                                    disabled={downloadingVadModel}
+                                >
+                                    <Download className="w-3.5 h-3.5 mr-1.5" />
+                                    {downloadingVadModel ? t('common.downloading') : t('common.download')}
+                                </Button>
+                            </div>
+                            {downloadingVadModel && (
+                                <Progress value={downloadProgressByKey['vad:silero-v6.2.0']?.percent ?? 0} className="h-1.5" />
+                            )}
                         </div>
-                        {downloadingVadModel && <Progress value={downloadProgressByKey['vad:silero-v6.2.0']?.percent ?? 0} />}
-                        <Button type="button" variant="outline" onClick={() => downloadSelectedVadModel().catch(() => null)} disabled={downloadingVadModel}>
-                            {downloadingVadModel ? t('common.downloading') : t('serviceCredentials.whisper.downloadVad')}
-                        </Button>
                     </div>
                 </div>
             </SettingsPageShell>
