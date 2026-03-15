@@ -166,8 +166,6 @@ interface SettingsDef {
     'settings/appearance/update': { params: { theme: string; fontSize: string }, return: void };
     'settings/shortcuts/update': { params: ShortcutSettingSaveVO, return: void };
     'settings/storage/update': { params: { path: string; collection: string }, return: void };
-    'settings/translation/update': { params: { engine: 'tencent' | 'openai'; tencentSecretId?: string; tencentSecretKey?: string }, return: void };
-    'settings/youdao/update': { params: { secretId: string; secretKey: string }, return: void };
 }
 
 interface WhisperModelDef {

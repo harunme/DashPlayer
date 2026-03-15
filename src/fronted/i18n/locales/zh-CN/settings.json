@@ -120,27 +120,6 @@
         },
         "wordClipsHint": "词汇工坊片段存储在 word_video 目录，需要时可在此重建数据库记录。"
     },
-    "youdao": {
-        "title": "查单词",
-        "description": "配置有道密钥以启用查词功能。",
-        "secretId": "应用 ID",
-        "secretKey": "应用密钥",
-        "docHintPrefix": "你需要有道智云密钥才能使用查词功能，详见"
-    },
-    "tenant": {
-        "title": "字幕翻译",
-        "description": "配置翻译引擎和相关密钥。",
-        "translationEngineLabel": "翻译引擎",
-        "selectEnginePlaceholder": "选择翻译引擎",
-        "engineTencent": "腾讯翻译",
-        "engineOpenAi": "OpenAI 翻译",
-        "engineHelp": "选择翻译引擎。腾讯翻译响应更快，OpenAI 在复杂语境下通常更准确。",
-        "tencentSecretId": "腾讯云 SecretId",
-        "tencentSecretKey": "腾讯云 SecretKey",
-        "tencentHintPrefix": "你需要腾讯云密钥才能使用字幕翻译，详见",
-        "openaiHintLine1": "OpenAI 翻译使用你在“服务凭据”页面配置的密钥和端点。",
-        "openaiHintLine2": "请先确认 OpenAI 配置完整且可用。"
-    },
     "engineSelection": {
         "title": "功能设置",
         "description": "按功能选择服务来源，可独立关闭。",

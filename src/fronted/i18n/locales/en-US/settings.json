@@ -120,27 +120,6 @@
         },
         "wordClipsHint": "Vocabulary Studio clips are stored under word_video. Use this action to rebuild database records when needed."
     },
-    "youdao": {
-        "title": "Dictionary Lookup",
-        "description": "Configure Youdao credentials to enable dictionary lookup.",
-        "secretId": "App ID",
-        "secretKey": "App Key",
-        "docHintPrefix": "You need Youdao Cloud credentials to use dictionary lookup. See"
-    },
-    "tenant": {
-        "title": "Subtitle Translation",
-        "description": "Configure translation engines and related credentials.",
-        "translationEngineLabel": "Translation engine",
-        "selectEnginePlaceholder": "Select translation engine",
-        "engineTencent": "Tencent Translation",
-        "engineOpenAi": "OpenAI Translation",
-        "engineHelp": "Choose the translation engine. Tencent is typically faster, while OpenAI is often more accurate for complex context.",
-        "tencentSecretId": "Tencent SecretId",
-        "tencentSecretKey": "Tencent SecretKey",
-        "tencentHintPrefix": "Tencent credentials are required for subtitle translation. See",
-        "openaiHintLine1": "OpenAI translation uses the key and endpoint configured in Service Credentials.",
-        "openaiHintLine2": "Make sure your OpenAI configuration is complete and valid first."
-    },
     "engineSelection": {
         "title": "Feature Controls",
         "description": "Choose a provider per feature and disable features independently.",

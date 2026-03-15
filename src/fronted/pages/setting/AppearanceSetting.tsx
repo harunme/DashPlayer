@@ -14,6 +14,7 @@ import { Label } from '@/fronted/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/fronted/components/ui/select';
 import { useTranslation as useI18nTranslation } from 'react-i18next';
 import { applyLanguageSetting, AppLanguageSetting } from '@/fronted/i18n';
+import { useAutoSaveSettingsForm } from '@/fronted/hooks/useAutoSaveSettingsForm';
 
 const logger = getRendererLogger('AppearanceSetting');
 const api = backendClient;
@@ -52,136 +53,26 @@ const AppearanceSetting = () => {
     const setSetting = useSetting((state) => state.setSetting);
 
     const form = useForm<AppearanceFormValues>({
-        defaultValues: {
-            theme: normalizeTheme(themeSetting),
-            fontSize: normalizeFontSize(fontSizeSetting),
+    });
+
+    const { watch, setValue } = form;
+    const { initialize, flush } = useAutoSaveSettingsForm<AppearanceFormValues>({
+        form,
+        onSave: async (values) => {
+            logger.debug('saving appearance settings', values);
+            await api.call('settings/appearance/update', {
+                theme: values.theme,
+                fontSize: values.fontSize,
+            });
         },
     });
 
-    const { watch, setValue, getValues, formState, reset } = form;
-    const { isDirty } = formState;
-
-    const [, setAutoSaveStatus] = React.useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
-    const [, setAutoSaveError] = React.useState<string | null>(null);
-    const debounceRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
-    const pendingSaveRef = React.useRef<Promise<void> | null>(null);
-    const autoSaveIdleTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
-    const isMountedRef = React.useRef(true);
-
     React.useEffect(() => {
-        return () => {
-            isMountedRef.current = false;
-        };
-    }, []);
-
-    React.useEffect(() => {
-        const normalizedTheme = normalizeTheme(themeSetting);
-        const normalizedFontSize = normalizeFontSize(fontSizeSetting);
-        if (!isDirty) {
-            reset({
-                theme: normalizedTheme,
-                fontSize: normalizedFontSize,
-            }, {
-                keepValues: true,
-            });
-        }
-    }, [themeSetting, fontSizeSetting, reset, isDirty]);
-
-    const saveSettings = React.useCallback(async (values: AppearanceFormValues) => {
-        logger.debug('saving appearance settings', values);
-        await api.call('settings/appearance/update', {
-            theme: values.theme,
-            fontSize: values.fontSize,
+        initialize({
+            theme: normalizeTheme(themeSetting),
+            fontSize: normalizeFontSize(fontSizeSetting),
         });
-    }, []);
-
-    const runSave = React.useCallback(async (values: AppearanceFormValues) => {
-        if (autoSaveIdleTimerRef.current) {
-            clearTimeout(autoSaveIdleTimerRef.current);
-            autoSaveIdleTimerRef.current = null;
-        }
-        if (isMountedRef.current) {
-            setAutoSaveStatus('saving');
-            setAutoSaveError(null);
-        }
-        const savePromise = (async () => {
-            try {
-                await saveSettings(values);
-                if (isMountedRef.current) {
-                    setAutoSaveStatus('saved');
-                    reset(values, { keepValues: true });
-                    autoSaveIdleTimerRef.current = setTimeout(() => {
-                        if (isMountedRef.current) {
-                            setAutoSaveStatus((prev) => (prev === 'saved' ? 'idle' : prev));
-                        }
-                    }, 2000);
-                }
-            } catch (error) {
-                const message = error instanceof Error ? error.message : String(error);
-                if (isMountedRef.current) {
-                    setAutoSaveStatus('error');
-                    setAutoSaveError(message);
-                }
-                throw error;
-            }
-        })();
-        pendingSaveRef.current = savePromise;
-        savePromise.finally(() => {
-            if (pendingSaveRef.current === savePromise) {
-                pendingSaveRef.current = null;
-            }
-        });
-        return savePromise;
-    }, [reset, saveSettings]);
-
-    const flushPendingSave = React.useCallback(async () => {
-        if (debounceRef.current) {
-            clearTimeout(debounceRef.current);
-            debounceRef.current = null;
-        }
-        if (pendingSaveRef.current) {
-            await pendingSaveRef.current;
-            return;
-        }
-        if (!isDirty) {
-            return;
-        }
-        await runSave(getValues());
-        if (pendingSaveRef.current) {
-            await pendingSaveRef.current;
-        }
-    }, [getValues, isDirty, runSave]);
-
-    React.useEffect(() => {
-        return () => {
-            if (debounceRef.current) {
-                clearTimeout(debounceRef.current);
-                debounceRef.current = null;
-            }
-            if (autoSaveIdleTimerRef.current) {
-                clearTimeout(autoSaveIdleTimerRef.current);
-                autoSaveIdleTimerRef.current = null;
-            }
-            flushPendingSave().catch(() => undefined);
-        };
-    }, [flushPendingSave]);
-
-    React.useEffect(() => {
-        const subscription = watch(() => {
-            if (debounceRef.current) {
-                clearTimeout(debounceRef.current);
-            }
-            if (!formState.isDirty) {
-                return;
-            }
-            debounceRef.current = setTimeout(() => {
-                runSave(getValues()).catch((error) => {
-                    logger.error('auto save appearance settings failed', { error });
-                });
-            }, 600);
-        });
-        return () => subscription.unsubscribe();
-    }, [getValues, runSave, watch, formState.isDirty]);
+    }, [fontSizeSetting, initialize, themeSetting]);
 
     const currentTheme = normalizeTheme(watch('theme'));
     const currentFontSize = normalizeFontSize(watch('fontSize'));
@@ -197,7 +88,12 @@ const AppearanceSetting = () => {
     logger.debug('Current fontSize setting', { fontSize: currentFontSize });
 
     return (
-        <form className="w-full h-full min-h-0">
+        <form className="w-full h-full min-h-0" onSubmit={(event) => {
+            event.preventDefault();
+            flush().catch((error) => {
+                logger.error('flush appearance settings failed', { error });
+            });
+        }}>
             <SettingsPageShell
                 title={t('appearance.title')}
                 description={t('appearance.description')}

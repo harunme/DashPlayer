@@ -141,25 +141,6 @@ export default class SettingsController implements Controller {
         await this.settingsKeyValueService.set('storage.collection', 'default');
     }
 
-    public async updateTranslationSettings(params: {
-        engine: 'tencent' | 'openai';
-        tencentSecretId?: string;
-        tencentSecretKey?: string;
-    }): Promise<void> {
-        await this.settingsKeyValueService.set('subtitleTranslation.engine', params.engine);
-        if (params.tencentSecretId !== undefined) {
-            await this.settingsKeyValueService.set('apiKeys.tencent.secretId', params.tencentSecretId);
-        }
-        if (params.tencentSecretKey !== undefined) {
-            await this.settingsKeyValueService.set('apiKeys.tencent.secretKey', params.tencentSecretKey);
-        }
-    }
-
-    public async updateYoudaoSettings(params: { secretId: string; secretKey: string }): Promise<void> {
-        await this.settingsKeyValueService.set('apiKeys.youdao.secretId', params.secretId);
-        await this.settingsKeyValueService.set('apiKeys.youdao.secretKey', params.secretKey);
-    }
-
     registerRoutes(): void {
         registerRoute('settings/service-credentials/detail', () => this.getServiceCredentialsDetail());
         registerRoute('settings/service-credentials/save', (p) => this.saveServiceCredentials(p));
@@ -172,7 +153,5 @@ export default class SettingsController implements Controller {
         registerRoute('settings/appearance/update', (p) => this.updateAppearanceSettings(p));
         registerRoute('settings/shortcuts/update', (p) => this.updateShortcutSettings(p));
         registerRoute('settings/storage/update', (p) => this.updateStorageSettings(p));
-        registerRoute('settings/translation/update', (p) => this.updateTranslationSettings(p));
-        registerRoute('settings/youdao/update', (p) => this.updateYoudaoSettings(p));
     }
 }

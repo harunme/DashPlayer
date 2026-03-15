@@ -17,6 +17,7 @@ import { useShallow } from 'zustand/react/shallow';
 import { Input } from '@/fronted/components/ui/input';
 import { backendClient } from '@/fronted/application/bootstrap/backendClient';
 import { useTranslation as useI18nTranslation } from 'react-i18next';
+import { useAutoSaveSettingsForm } from '@/fronted/hooks/useAutoSaveSettingsForm';
 
 const api = backendClient;
 
@@ -36,24 +37,18 @@ const StorageSetting = () => {
     );
 
     const form = useForm<StorageFormValues>({
-        defaultValues: storeValues,
     });
 
-    const { control, getValues, reset, watch, formState, setValue } = form;
-    const { isDirty } = formState;
-
-    const [autoSaveStatus, setAutoSaveStatus] = React.useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
-    const [, setAutoSaveError] = React.useState<string | null>(null);
-    const debounceRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
-    const pendingSaveRef = React.useRef<Promise<void> | null>(null);
-    const autoSaveIdleTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
-    const isMountedRef = React.useRef(true);
-
-    React.useEffect(() => {
-        return () => {
-            isMountedRef.current = false;
-        };
-    }, []);
+    const { control, formState, setValue } = form;
+    const { status: autoSaveStatus, initialize, flush } = useAutoSaveSettingsForm<StorageFormValues>({
+        form,
+        onSave: async (values) => {
+            await api.call('settings/storage/update', {
+                path: values.path,
+                collection: values.collection,
+            });
+        },
+    });
 
     React.useEffect(() => {
         const init = async () => {
@@ -64,108 +59,12 @@ const StorageSetting = () => {
     }, []);
 
     React.useEffect(() => {
-        if (!isDirty) {
-            reset(storeValues, { keepValues: true });
-        }
-    }, [isDirty, reset, storeValues]);
-
-    const saveSettings = React.useCallback(async (values: StorageFormValues) => {
-        await api.call('settings/storage/update', {
-            path: values.path,
-            collection: values.collection,
-        });
-    }, []);
-
-    const runSave = React.useCallback(async (values: StorageFormValues) => {
-        if (autoSaveIdleTimerRef.current) {
-            clearTimeout(autoSaveIdleTimerRef.current);
-            autoSaveIdleTimerRef.current = null;
-        }
-        if (isMountedRef.current) {
-            setAutoSaveStatus('saving');
-            setAutoSaveError(null);
-        }
-        const promise = (async () => {
-            try {
-                await saveSettings(values);
-                if (isMountedRef.current) {
-                    setAutoSaveStatus('saved');
-                    reset(values, { keepValues: true });
-                    autoSaveIdleTimerRef.current = setTimeout(() => {
-                        if (isMountedRef.current) {
-                            setAutoSaveStatus((prev) => (prev === 'saved' ? 'idle' : prev));
-                        }
-                    }, 2000);
-                }
-            } catch (error) {
-                const message = error instanceof Error ? error.message : String(error);
-                if (isMountedRef.current) {
-                    setAutoSaveStatus('error');
-                    setAutoSaveError(message);
-                }
-                throw error;
-            }
-        })();
-
-        pendingSaveRef.current = promise;
-        promise.finally(() => {
-            if (pendingSaveRef.current === promise) {
-                pendingSaveRef.current = null;
-            }
-        });
-        return promise;
-    }, [reset, saveSettings]);
-
-    const flushPendingSave = React.useCallback(async () => {
-        if (debounceRef.current) {
-            clearTimeout(debounceRef.current);
-            debounceRef.current = null;
-        }
-        if (pendingSaveRef.current) {
-            await pendingSaveRef.current;
-            return;
-        }
-        if (!isDirty) {
-            return;
-        }
-        await runSave(getValues());
-        if (pendingSaveRef.current) {
-            await pendingSaveRef.current;
-        }
-    }, [getValues, isDirty, runSave]);
-
-    React.useEffect(() => {
-        return () => {
-            if (debounceRef.current) {
-                clearTimeout(debounceRef.current);
-                debounceRef.current = null;
-            }
-            if (autoSaveIdleTimerRef.current) {
-                clearTimeout(autoSaveIdleTimerRef.current);
-                autoSaveIdleTimerRef.current = null;
-            }
-            flushPendingSave().catch(() => undefined);
-        };
-    }, [flushPendingSave]);
-
-    React.useEffect(() => {
-        const subscription = watch(() => {
-            if (debounceRef.current) {
-                clearTimeout(debounceRef.current);
-            }
-            if (!formState.isDirty) {
-                return;
-            }
-            debounceRef.current = setTimeout(() => {
-                runSave(getValues()).catch(() => undefined);
-            }, 600);
-        });
-        return () => subscription.unsubscribe();
-    }, [getValues, runSave, watch, formState.isDirty]);
+        initialize(storeValues);
+    }, [initialize, storeValues]);
 
     async function reloadOss() {
         try {
-            await flushPendingSave();
+            await flush();
         } catch (error) {
             const message = error instanceof Error ? error.message : String(error);
             throw new Error(t('storage.saveSettingsFailed', { message }));
@@ -179,7 +78,7 @@ const StorageSetting = () => {
 
     async function reloadWordLearningClips() {
         try {
-            await flushPendingSave();
+            await flush();
         } catch (error) {
             const message = error instanceof Error ? error.message : String(error);
             throw new Error(t('storage.saveSettingsFailed', { message }));
