@@ -15,27 +15,39 @@ export default class SettingsController implements Controller {
     @inject(TYPES.SettingsKeyValueService) private settingsKeyValueService!: SettingsKeyValueService;
     private logger = getMainLogger('SettingsController');
 
-    public async queryServiceCredentials(): Promise<ServiceCredentialSettingVO> {
-        return this.settingService.queryServiceCredentials();
+    /**
+     * 获取服务凭据页面详情。
+     */
+    public async getServiceCredentialsDetail(): Promise<ServiceCredentialSettingVO> {
+        return this.settingService.getServiceCredentialsDetail();
     }
 
-    public async updateServiceCredentials(settings: ServiceCredentialSettingVO): Promise<void> {
+    /**
+     * 保存服务凭据页面数据。
+     */
+    public async saveServiceCredentials(settings: ServiceCredentialSettingVO): Promise<void> {
         this.logger.info('update service credentials', {
             settings: {
                 ...settings,
                 openai: { ...settings.openai, key: '***' },
             },
         });
-        await this.settingService.updateServiceCredentials(settings);
+        await this.settingService.saveServiceCredentials(settings);
     }
 
-    public async queryEngineSelection(): Promise<EngineSelectionSettingVO> {
-        return this.settingService.queryEngineSelection();
+    /**
+     * 获取功能设置页面详情。
+     */
+    public async getEngineSelectionDetail(): Promise<EngineSelectionSettingVO> {
+        return this.settingService.getEngineSelectionDetail();
     }
 
-    public async updateEngineSelection(settings: EngineSelectionSettingVO): Promise<void> {
+    /**
+     * 保存功能设置页面数据。
+     */
+    public async saveEngineSelection(settings: EngineSelectionSettingVO): Promise<void> {
         this.logger.info('update engine selection', { settings });
-        await this.settingService.updateEngineSelection(settings);
+        await this.settingService.saveEngineSelection(settings);
     }
 
     public async testOpenAi(): Promise<{ success: boolean, message: string }> {
@@ -99,13 +111,13 @@ export default class SettingsController implements Controller {
     }
 
     registerRoutes(): void {
-        registerRoute('settings/service-credentials/get', () => this.queryServiceCredentials());
-        registerRoute('settings/service-credentials/update', (p) => this.updateServiceCredentials(p));
+        registerRoute('settings/service-credentials/detail', () => this.getServiceCredentialsDetail());
+        registerRoute('settings/service-credentials/save', (p) => this.saveServiceCredentials(p));
         registerRoute('settings/service-credentials/test-openai', () => this.testOpenAi());
         registerRoute('settings/service-credentials/test-tencent', () => this.testTencent());
         registerRoute('settings/service-credentials/test-youdao', () => this.testYoudao());
-        registerRoute('settings/engine-selection/get', () => this.queryEngineSelection());
-        registerRoute('settings/engine-selection/update', (p) => this.updateEngineSelection(p));
+        registerRoute('settings/engine-selection/detail', () => this.getEngineSelectionDetail());
+        registerRoute('settings/engine-selection/save', (p) => this.saveEngineSelection(p));
         registerRoute('settings/appearance/update', (p) => this.updateAppearanceSettings(p));
         registerRoute('settings/shortcuts/update', (p) => this.updateShortcutSettings(p));
         registerRoute('settings/storage/update', (p) => this.updateStorageSettings(p));

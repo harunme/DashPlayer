@@ -14,30 +14,36 @@ import { WhisperModelStatusVO } from '@/common/types/vo/whisper-model-vo';
 import { backendClient } from '@/fronted/application/bootstrap/backendClient';
 import { useToast } from '@/fronted/components/ui/use-toast';
 import { useTranslation as useI18nTranslation } from 'react-i18next';
+import { useAutoSaveSettingsForm } from '@/fronted/hooks/useAutoSaveSettingsForm';
 
 const api = backendClient;
 
+/**
+ * 服务凭据设置页。
+ */
 const ServiceCredentialSetting = () => {
     const { t } = useI18nTranslation('settings');
     const { toast } = useToast();
-    const { data: settings, mutate, isLoading } = useSWR('settings/service-credentials/get', () =>
-        api.call('settings/service-credentials/get'),
+    const { data: settings } = useSWR('settings/service-credentials/detail', () =>
+        api.call('settings/service-credentials/detail'),
     );
 
-    const { register, setValue, handleSubmit, watch, reset } = useForm<ServiceCredentialSettingVO>({
-        defaultValues: {
-            openai: { key: '', endpoint: 'https://api.openai.com', models: 'gpt-5.2' },
-            tencent: { secretId: '', secretKey: '' },
-            youdao: { secretId: '', secretKey: '' },
-            whisper: { modelSize: 'base', enableVad: true, vadModel: 'silero-v6.2.0' },
+    const form = useForm<ServiceCredentialSettingVO>();
+    const { register, setValue, watch } = form;
+
+    const {
+        ready,
+        status: autoSaveStatus,
+        error: autoSaveError,
+        initialize,
+        flush,
+    } = useAutoSaveSettingsForm<ServiceCredentialSettingVO>({
+        form,
+        onSave: async (values) => {
+            await api.call('settings/service-credentials/save', values);
         },
     });
 
-    register('whisper.modelSize');
-    register('openai.models');
-
-    const [saving, setSaving] = React.useState(false);
-    const debounceRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
     const [testingOpenAi, setTestingOpenAi] = React.useState(false);
     const [testingTencent, setTestingTencent] = React.useState(false);
     const [testingYoudao, setTestingYoudao] = React.useState(false);
@@ -48,18 +54,22 @@ const ServiceCredentialSetting = () => {
     const [downloadProgressByKey, setDownloadProgressByKey] = React.useState<Record<string, { percent: number }>>({});
 
     const whisperModelSize = watch('whisper.modelSize');
-    const openAiModelsText = watch('openai.models') ?? 'gpt-5.2';
+    const openAiModelsText = watch('openai.models');
 
+    /**
+     * 刷新 Whisper 模型状态。
+     */
     const refreshWhisperModelStatus = React.useCallback(async () => {
         const status = await api.call('whisper/models/status');
         setWhisperModelStatus(status);
     }, []);
 
     React.useEffect(() => {
-        if (settings) {
-            reset(settings);
+        if (!settings) {
+            return;
         }
-    }, [settings, reset]);
+        initialize(settings);
+    }, [initialize, settings]);
 
     React.useEffect(() => {
         refreshWhisperModelStatus().catch(() => null);
@@ -87,42 +97,21 @@ const ServiceCredentialSetting = () => {
         };
     }, [refreshWhisperModelStatus]);
 
-    const onSave = handleSubmit(async (data) => {
-        setSaving(true);
+    /**
+     * 测试指定服务商连通性。
+     */
+    const testProvider = async (provider: 'openai' | 'tencent' | 'youdao') => {
         try {
-            await api.call('settings/service-credentials/update', data);
-            await mutate();
-        } catch (error) {
+            await flush();
+        } catch (flushError) {
             toast({
                 variant: 'destructive',
                 title: t('common.saveFailed'),
-                description: error instanceof Error ? error.message : String(error),
+                description: flushError instanceof Error ? flushError.message : String(flushError),
             });
-        } finally {
-            setSaving(false);
+            return;
         }
-    });
 
-    React.useEffect(() => {
-        const subscription = watch(() => {
-            if (debounceRef.current) {
-                clearTimeout(debounceRef.current);
-            }
-            debounceRef.current = setTimeout(() => {
-                onSave().catch(() => null);
-            }, 500);
-        });
-
-        return () => {
-            subscription.unsubscribe();
-            if (debounceRef.current) {
-                clearTimeout(debounceRef.current);
-                debounceRef.current = null;
-            }
-        };
-    }, [watch, onSave]);
-
-    const testProvider = async (provider: 'openai' | 'tencent' | 'youdao') => {
         const setTesting = {
             openai: setTestingOpenAi,
             tencent: setTestingTencent,
@@ -149,8 +138,14 @@ const ServiceCredentialSetting = () => {
         }
     };
 
+    /**
+     * 下载当前选中的 Whisper 模型。
+     */
     const downloadSelectedWhisperModel = async () => {
-        const size = whisperModelSize === 'large' ? 'large' : 'base';
+        const size = whisperModelSize;
+        if (!size) {
+            throw new Error('whisper.modelSize 未初始化');
+        }
         const key = `whisper:${size}`;
         setDownloadingWhisperModel(true);
         setDownloadProgressByKey((prev) => ({ ...prev, [key]: { percent: 0 } }));
@@ -169,6 +164,9 @@ const ServiceCredentialSetting = () => {
         }
     };
 
+    /**
+     * 下载当前 VAD 模型。
+     */
     const downloadSelectedVadModel = async () => {
         const key = 'vad:silero-v6.2.0';
         setDownloadingVadModel(true);
@@ -188,12 +186,26 @@ const ServiceCredentialSetting = () => {
         }
     };
 
+    if (!ready) {
+        return (
+            <div className="w-full h-full min-h-0">
+                <SettingsPageShell
+                    title={t('serviceCredentials.title')}
+                    description={t('serviceCredentials.description')}
+                    contentClassName="space-y-6"
+                >
+                    <></>
+                </SettingsPageShell>
+            </div>
+        );
+    }
+
     return (
         <form
             className="w-full h-full min-h-0"
             onSubmit={(event) => {
                 event.preventDefault();
-                onSave().catch(() => null);
+                flush().catch(() => null);
             }}
         >
             <SettingsPageShell
@@ -206,7 +218,12 @@ const ServiceCredentialSetting = () => {
                     {t('serviceCredentials.intro')}
                 </div>
 
-                {/* OpenAI */}
+                {autoSaveStatus === 'error' && autoSaveError && (
+                    <div className="rounded-md border border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive">
+                        {autoSaveError}
+                    </div>
+                )}
+
                 <div className="rounded-xl border border-border/70 p-5 space-y-4">
                     <div className="flex items-center justify-between gap-3">
                         <div>
@@ -220,7 +237,7 @@ const ServiceCredentialSetting = () => {
                                     {testResults.openai.success ? t('common.testSuccess') : testResults.openai.message}
                                 </span>
                             )}
-                            <Button type="button" variant="outline" size="sm" onClick={() => testProvider('openai').catch(() => null)} disabled={testingOpenAi}>
+                            <Button type="button" variant="outline" size="sm" onClick={() => testProvider('openai').catch(() => null)} disabled={testingOpenAi || autoSaveStatus === 'saving'}>
                                 <TestTube className="w-4 h-4 mr-2" />
                                 {testingOpenAi ? t('common.testing') : t('common.testConnection')}
                             </Button>
@@ -250,7 +267,6 @@ const ServiceCredentialSetting = () => {
                     </div>
                 </div>
 
-                {/* Tencent */}
                 <div className="rounded-xl border border-border/70 p-5 space-y-4">
                     <div className="flex items-center justify-between gap-3">
                         <div>
@@ -264,7 +280,7 @@ const ServiceCredentialSetting = () => {
                                     {testResults.tencent.success ? t('common.testSuccess') : testResults.tencent.message}
                                 </span>
                             )}
-                            <Button type="button" variant="outline" size="sm" onClick={() => testProvider('tencent').catch(() => null)} disabled={testingTencent}>
+                            <Button type="button" variant="outline" size="sm" onClick={() => testProvider('tencent').catch(() => null)} disabled={testingTencent || autoSaveStatus === 'saving'}>
                                 <TestTube className="w-4 h-4 mr-2" />
                                 {testingTencent ? t('common.testing') : t('common.testConnection')}
                             </Button>
@@ -282,7 +298,6 @@ const ServiceCredentialSetting = () => {
                     </div>
                 </div>
 
-                {/* YouDao */}
                 <div className="rounded-xl border border-border/70 p-5 space-y-4">
                     <div className="flex items-center justify-between gap-3">
                         <div>
@@ -296,7 +311,7 @@ const ServiceCredentialSetting = () => {
                                     {testResults.youdao.success ? t('common.testSuccess') : testResults.youdao.message}
                                 </span>
                             )}
-                            <Button type="button" variant="outline" size="sm" onClick={() => testProvider('youdao').catch(() => null)} disabled={testingYoudao}>
+                            <Button type="button" variant="outline" size="sm" onClick={() => testProvider('youdao').catch(() => null)} disabled={testingYoudao || autoSaveStatus === 'saving'}>
                                 <TestTube className="w-4 h-4 mr-2" />
                                 {testingYoudao ? t('common.testing') : t('common.testConnection')}
                             </Button>
@@ -314,7 +329,6 @@ const ServiceCredentialSetting = () => {
                     </div>
                 </div>
 
-                {/* Whisper */}
                 <div className="rounded-xl border border-border/70 p-5 space-y-4">
                     <div>
                         <div className="flex items-center gap-2 text-sm font-semibold"><Cpu className="w-4 h-4" />{t('serviceCredentials.whisper.title')}</div>
@@ -336,12 +350,11 @@ const ServiceCredentialSetting = () => {
                     </div>
 
                     <div className="rounded-lg border border-border/60 divide-y divide-border/60 overflow-hidden">
-                        {/* Whisper model row */}
                         <div className="px-4 py-3 space-y-3">
                             <div className="flex items-center justify-between gap-3">
                                 <div className="flex items-center gap-3 min-w-0">
                                     <span className="text-sm font-medium">Whisper {whisperModelSize}</span>
-                                    {whisperModelStatus?.whisper?.[whisperModelSize === 'large' ? 'large' : 'base']?.exists ? (
+                                    {whisperModelStatus?.whisper?.[whisperModelSize]?.exists ? (
                                         <span className="inline-flex items-center gap-1 rounded-full bg-green-500/10 px-2 py-0.5 text-xs text-green-600">
                                             <CheckCircle2 className="w-3 h-3" />
                                             {t('common.ready')}
@@ -368,7 +381,6 @@ const ServiceCredentialSetting = () => {
                             )}
                         </div>
 
-                        {/* VAD model row */}
                         <div className="px-4 py-3 space-y-3">
                             <div className="flex items-center justify-between gap-3">
                                 <div className="flex items-center gap-3 min-w-0">

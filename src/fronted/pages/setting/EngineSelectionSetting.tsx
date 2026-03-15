@@ -12,70 +12,45 @@ import SettingsPageShell from '@/fronted/pages/setting/components/form/SettingsP
 import { EngineSelectionSettingVO } from '@/common/types/vo/engine-selection-setting-vo';
 import { ServiceCredentialSettingVO } from '@/common/types/vo/service-credentials-setting-vo';
 import { WhisperModelStatusVO } from '@/common/types/vo/whisper-model-vo';
-import { getSubtitleDefaultStyle } from '@/common/constants/openaiSubtitlePrompts';
 import { backendClient } from '@/fronted/application/bootstrap/backendClient';
-import { useToast } from '@/fronted/components/ui/use-toast';
 import { useTranslation as useI18nTranslation } from 'react-i18next';
+import { useAutoSaveSettingsForm } from '@/fronted/hooks/useAutoSaveSettingsForm';
 
 const api = backendClient;
 
 /**
- * 将服务凭据中的原始模型文本解析为下拉可用项。
- *
- * 解析规则：
- * - 同时支持逗号与换行分隔；
- * - 会裁剪首尾空白并移除空项；
- * - 当结果为空时回退到默认模型，避免下拉框无可选项。
+ * 将服务端返回的 OpenAI 模型文本解析为可选模型列表。
  */
-const parseAvailableModels = (rawModels: string | undefined): string[] => {
-    const parsed = (rawModels ?? '')
+const parseAvailableModels = (rawModels: string): string[] => {
+    const parsed = rawModels
         .split(/[\n,]/)
         .map((item) => item.trim())
         .filter((item) => item.length > 0);
 
-    const deduped = Array.from(new Set(parsed));
-    if (deduped.length === 0) {
-        return ['gpt-5.2'];
-    }
-
-    return deduped;
+    return Array.from(new Set(parsed));
 };
 
+/**
+ * 功能设置页。
+ */
 const EngineSelectionSetting = () => {
     const { t } = useI18nTranslation('settings');
     const navigate = useNavigate();
-    const { toast } = useToast();
-    const { data: settings, mutate } = useSWR('settings/engine-selection/get', () =>
-        api.call('settings/engine-selection/get'),
+
+    const { data: settings } = useSWR('settings/engine-selection/detail', () =>
+        api.call('settings/engine-selection/detail'),
     );
     const { data: credentialSettings } = useSWR<ServiceCredentialSettingVO>(
-        'settings/service-credentials/get',
-        () => api.call('settings/service-credentials/get'),
+        'settings/service-credentials/detail',
+        () => api.call('settings/service-credentials/detail'),
     );
     const { data: whisperStatus } = useSWR<WhisperModelStatusVO>(
         'whisper/models/status',
         () => api.call('whisper/models/status'),
     );
 
-    const { register, setValue, watch, reset, handleSubmit } = useForm<EngineSelectionSettingVO>({
-        defaultValues: {
-            openai: {
-                enableSentenceLearning: true,
-                subtitleTranslationMode: 'zh',
-                subtitleCustomStyle: getSubtitleDefaultStyle('custom'),
-                featureModels: {
-                    sentenceLearning: 'gpt-5.2',
-                    subtitleTranslation: 'gpt-5.2',
-                    dictionary: 'gpt-5.2',
-                },
-            },
-            providers: {
-                subtitleTranslationEngine: 'openai',
-                dictionaryEngine: 'openai',
-                transcriptionEngine: 'openai',
-            },
-        },
-    });
+    const form = useForm<EngineSelectionSettingVO>();
+    const { register, setValue, watch } = form;
 
     register('openai.enableSentenceLearning');
     register('openai.subtitleTranslationMode');
@@ -87,58 +62,61 @@ const EngineSelectionSetting = () => {
     register('providers.dictionaryEngine');
     register('providers.transcriptionEngine');
 
-    React.useEffect(() => {
-        if (settings) {
-            reset(settings);
-        }
-    }, [settings, reset]);
-
-    const debounceRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
-    const subtitleMode = watch('openai.subtitleTranslationMode');
-    const subtitleEngine = watch('providers.subtitleTranslationEngine');
-    const transcriptionEngine = watch('providers.transcriptionEngine');
-    const availableModels = parseAvailableModels(credentialSettings?.openai.models);
-
-    const whisperSelectedModelSize = credentialSettings?.whisper.modelSize === 'large' ? 'large' : 'base';
-    const whisperModelReady = whisperStatus?.whisper?.[whisperSelectedModelSize]?.exists === true;
-    const shouldShowWhisperConfigHint = transcriptionEngine === 'whisper' && !whisperModelReady;
-
-    const onSave = handleSubmit(async (data) => {
-        try {
-            await api.call('settings/engine-selection/update', data);
-            await mutate();
-        } catch (error) {
-            toast({
-                variant: 'destructive',
-                title: t('common.saveFailed'),
-                description: error instanceof Error ? error.message : String(error),
-            });
-        }
+    const {
+        ready,
+        status: autoSaveStatus,
+        error: autoSaveError,
+        initialize,
+        flush,
+    } = useAutoSaveSettingsForm<EngineSelectionSettingVO>({
+        form,
+        onSave: async (values) => {
+            await api.call('settings/engine-selection/save', values);
+        },
     });
 
     React.useEffect(() => {
-        const subscription = watch(() => {
-            if (debounceRef.current) {
-                clearTimeout(debounceRef.current);
-            }
-            debounceRef.current = setTimeout(() => {
-                onSave().catch(() => null);
-            }, 500);
-        });
+        if (!settings) {
+            return;
+        }
+        initialize(settings);
+    }, [initialize, settings]);
 
-        return () => {
-            subscription.unsubscribe();
-            if (debounceRef.current) {
-                clearTimeout(debounceRef.current);
-                debounceRef.current = null;
-            }
-        };
-    }, [watch, onSave]);
+    const subtitleMode = watch('openai.subtitleTranslationMode');
+    const subtitleEngine = watch('providers.subtitleTranslationEngine');
+    const transcriptionEngine = watch('providers.transcriptionEngine');
+
+    const availableModels = React.useMemo(() => {
+        if (!credentialSettings) {
+            return [];
+        }
+        return parseAvailableModels(credentialSettings.openai.models);
+    }, [credentialSettings]);
+
+    const whisperSelectedModelSize = credentialSettings?.whisper.modelSize;
+    const whisperModelReady = whisperSelectedModelSize
+        ? whisperStatus?.whisper?.[whisperSelectedModelSize]?.exists === true
+        : false;
+    const shouldShowWhisperConfigHint = transcriptionEngine === 'whisper' && !whisperModelReady;
+
+    if (!ready || !credentialSettings) {
+        return (
+            <div className="w-full h-full min-h-0">
+                <SettingsPageShell
+                    title={t('engineSelection.title')}
+                    description={t('engineSelection.description')}
+                    contentClassName="space-y-6"
+                >
+                    <></>
+                </SettingsPageShell>
+            </div>
+        );
+    }
 
     return (
         <form className="w-full h-full min-h-0" onSubmit={(event) => {
             event.preventDefault();
-            onSave().catch(() => null);
+            flush().catch(() => null);
         }}>
             <SettingsPageShell
                 title={t('engineSelection.title')}
@@ -148,6 +126,12 @@ const EngineSelectionSetting = () => {
                 <div className="rounded-lg border border-border/70 bg-muted/30 p-4 text-sm text-muted-foreground">
                     {t('engineSelection.intro')}
                 </div>
+
+                {autoSaveStatus === 'error' && autoSaveError && (
+                    <div className="rounded-md border border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive">
+                        {autoSaveError}
+                    </div>
+                )}
 
                 <div className="flex items-center gap-2 text-base font-semibold text-foreground">
                     <Settings2 className="w-5 h-5" />

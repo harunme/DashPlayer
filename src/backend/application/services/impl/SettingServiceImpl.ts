@@ -37,6 +37,33 @@ export default class SettingServiceImpl implements SettingService {
         return this.settingsStore.get(key);
     }
 
+    /**
+     * 对枚举字符串做严格校验，不合法时立即抛错暴露数据问题。
+     */
+    private requireEnumValue<TValue extends string>(
+        value: string,
+        allowedValues: readonly TValue[],
+        fieldName: string,
+    ): TValue {
+        if (allowedValues.includes(value as TValue)) {
+            return value as TValue;
+        }
+        throw new Error(`设置项 ${fieldName} 非法: ${value}`);
+    }
+
+    /**
+     * 对布尔字符串做严格校验，不接受隐式回退。
+     */
+    private requireBooleanString(value: string, fieldName: string): boolean {
+        if (value === 'true') {
+            return true;
+        }
+        if (value === 'false') {
+            return false;
+        }
+        throw new Error(`设置项 ${fieldName} 非法: ${value}`);
+    }
+
     private normalizeSubtitleEngine(value: string): 'openai' | 'tencent' | 'none' {
         if (value === 'openai' || value === 'tencent' || value === 'none') {
             return value;
@@ -64,34 +91,24 @@ export default class SettingServiceImpl implements SettingService {
      * 解析规则：
      * - 同时支持逗号与换行分隔；
      * - 会去掉首尾空白并移除空项；
-     * - 当结果为空时回退到默认模型，避免功能设置页出现空选项。
+     * - 不做默认值回退，空列表直接返回空数组。
      */
     private parseOpenAiModels(raw: string): string[] {
         const parsed = raw
             .split(/[\n,]/)
             .map((item) => item.trim())
             .filter((item) => item.length > 0);
-
-        const deduped = Array.from(new Set(parsed));
-        if (deduped.length === 0) {
-            return ['gpt-5.2'];
-        }
-        return deduped;
+        return Array.from(new Set(parsed));
     }
 
     /**
-     * 根据当前可用模型列表兜底功能级模型选择。
-     *
-     * 行为说明：
-     * - 若候选模型仍在可用列表中，则直接保留；
-     * - 若候选模型失效，则回退到列表首项；
-     * - 若列表为空，则使用默认模型。
+     * 校验功能模型是否在可用模型列表中。
      */
-    private resolveFeatureModel(candidate: string, availableModels: string[]): string {
-        if (availableModels.includes(candidate)) {
-            return candidate;
+    private requireFeatureModelAvailable(candidate: string, availableModels: string[], fieldName: string): string {
+        if (!availableModels.includes(candidate)) {
+            throw new Error(`${fieldName} 不是可用模型: ${candidate}`);
         }
-        return availableModels[0] ?? 'gpt-5.2';
+        return candidate;
     }
 
     private whisperModelPathForCurrentSize(): { modelSize: 'base' | 'large'; modelPath: string } {
@@ -121,7 +138,17 @@ export default class SettingServiceImpl implements SettingService {
      * - `openai.models` 直接返回存储中的原始文本，保留用户输入格式；
      * - 其他字段按当前存储值映射为设置页表单结构。
      */
-    public async queryServiceCredentials(): Promise<ServiceCredentialSettingVO> {
+    public async getServiceCredentialsDetail(): Promise<ServiceCredentialSettingVO> {
+        const whisperModelSize = this.requireEnumValue(
+            this.getValue('whisper.modelSize'),
+            ['base', 'large'] as const,
+            'whisper.modelSize',
+        );
+        const whisperVadModel = this.requireEnumValue(
+            this.getValue('whisper.vadModel'),
+            ['silero-v5.1.2', 'silero-v6.2.0'] as const,
+            'whisper.vadModel',
+        );
         return {
             openai: {
                 key: this.getValue('apiKeys.openAi.key'),
@@ -137,9 +164,9 @@ export default class SettingServiceImpl implements SettingService {
                 secretKey: this.getValue('apiKeys.youdao.secretKey'),
             },
             whisper: {
-                modelSize: this.getValue('whisper.modelSize') === 'large' ? 'large' : 'base',
-                enableVad: this.getValue('whisper.enableVad') !== 'false',
-                vadModel: this.getValue('whisper.vadModel') === 'silero-v5.1.2' ? 'silero-v5.1.2' : 'silero-v6.2.0',
+                modelSize: whisperModelSize,
+                enableVad: this.requireBooleanString(this.getValue('whisper.enableVad'), 'whisper.enableVad'),
+                vadModel: whisperVadModel,
             },
         };
     }
@@ -151,19 +178,10 @@ export default class SettingServiceImpl implements SettingService {
      * - `openai.models` 原样写回存储，避免编辑过程中丢失逗号、换行等格式；
      * - 真正用于路由和功能模型兜底时，再临时解析模型列表文本。
      */
-    public async updateServiceCredentials(settings: ServiceCredentialSettingVO): Promise<void> {
-        const rawModels = settings.openai.models ?? '';
-        const models = this.parseOpenAiModels(rawModels);
+    public async saveServiceCredentials(settings: ServiceCredentialSettingVO): Promise<void> {
         await this.setValue('apiKeys.openAi.key', settings.openai.key);
         await this.setValue('apiKeys.openAi.endpoint', settings.openai.endpoint);
-        await this.setValue('models.openai.available', rawModels);
-
-        const sentenceLearningModel = this.resolveFeatureModel(this.getValue('models.openai.sentenceLearning'), models);
-        const subtitleTranslationModel = this.resolveFeatureModel(this.getValue('models.openai.subtitleTranslation'), models);
-        const dictionaryModel = this.resolveFeatureModel(this.getValue('models.openai.dictionary'), models);
-        await this.setValue('models.openai.sentenceLearning', sentenceLearningModel);
-        await this.setValue('models.openai.subtitleTranslation', subtitleTranslationModel);
-        await this.setValue('models.openai.dictionary', dictionaryModel);
+        await this.setValue('models.openai.available', settings.openai.models);
 
         await this.setValue('apiKeys.tencent.secretId', settings.tencent.secretId);
         await this.setValue('apiKeys.tencent.secretKey', settings.tencent.secretKey);
@@ -171,35 +189,79 @@ export default class SettingServiceImpl implements SettingService {
         await this.setValue('apiKeys.youdao.secretId', settings.youdao.secretId);
         await this.setValue('apiKeys.youdao.secretKey', settings.youdao.secretKey);
 
-        await this.setValue('whisper.modelSize', settings.whisper.modelSize === 'large' ? 'large' : 'base');
-        await this.setValue('whisper.enableVad', settings.whisper.enableVad ? 'true' : 'false');
-        await this.setValue(
-            'whisper.vadModel',
-            settings.whisper.vadModel === 'silero-v5.1.2' ? 'silero-v5.1.2' : 'silero-v6.2.0',
+        const whisperModelSize = this.requireEnumValue(
+            settings.whisper.modelSize,
+            ['base', 'large'] as const,
+            'whisper.modelSize',
         );
+        const whisperVadModel = this.requireEnumValue(
+            settings.whisper.vadModel,
+            ['silero-v5.1.2', 'silero-v6.2.0'] as const,
+            'whisper.vadModel',
+        );
+        await this.setValue('whisper.modelSize', whisperModelSize);
+        await this.setValue('whisper.enableVad', settings.whisper.enableVad ? 'true' : 'false');
+        await this.setValue('whisper.vadModel', whisperVadModel);
     }
 
-    public async queryEngineSelection(): Promise<EngineSelectionSettingVO> {
-        const subtitleTranslationEngine = this.normalizeSubtitleEngine(this.getValue('providers.subtitleTranslation'));
-        const dictionaryEngine = this.normalizeDictionaryEngine(this.getValue('providers.dictionary'));
-        const transcriptionEngine = this.normalizeTranscriptionEngine(this.getValue('providers.transcription'));
-
-        const subtitleModeRaw = this.getValue('features.openai.subtitleTranslationMode');
-        const subtitleMode: 'zh' | 'simple_en' | 'custom' =
-            subtitleModeRaw === 'simple_en' || subtitleModeRaw === 'custom' ? subtitleModeRaw : 'zh';
-
-        const subtitleCustomStyle = this.getValue('features.openai.subtitleCustomStyle') || getSubtitleDefaultStyle('custom');
+    /**
+     * 获取功能设置页面详情，按严格模式校验存储值。
+     */
+    public async getEngineSelectionDetail(): Promise<EngineSelectionSettingVO> {
+        const subtitleTranslationEngine = this.requireEnumValue(
+            this.getValue('providers.subtitleTranslation'),
+            ['openai', 'tencent', 'none'] as const,
+            'providers.subtitleTranslation',
+        );
+        const dictionaryEngine = this.requireEnumValue(
+            this.getValue('providers.dictionary'),
+            ['openai', 'youdao', 'none'] as const,
+            'providers.dictionary',
+        );
+        const transcriptionEngine = this.requireEnumValue(
+            this.getValue('providers.transcription'),
+            ['openai', 'whisper', 'none'] as const,
+            'providers.transcription',
+        );
+        const subtitleMode = this.requireEnumValue(
+            this.getValue('features.openai.subtitleTranslationMode'),
+            ['zh', 'simple_en', 'custom'] as const,
+            'features.openai.subtitleTranslationMode',
+        );
+        const subtitleCustomStyle = this.getValue('features.openai.subtitleCustomStyle');
         const availableModels = this.parseOpenAiModels(this.getValue('models.openai.available'));
+        if (availableModels.length === 0) {
+            throw new Error('models.openai.available 为空，无法渲染功能模型选择');
+        }
+
+        const sentenceLearningModel = this.requireFeatureModelAvailable(
+            this.getValue('models.openai.sentenceLearning'),
+            availableModels,
+            'models.openai.sentenceLearning',
+        );
+        const subtitleTranslationModel = this.requireFeatureModelAvailable(
+            this.getValue('models.openai.subtitleTranslation'),
+            availableModels,
+            'models.openai.subtitleTranslation',
+        );
+        const dictionaryModel = this.requireFeatureModelAvailable(
+            this.getValue('models.openai.dictionary'),
+            availableModels,
+            'models.openai.dictionary',
+        );
 
         return {
             openai: {
-                enableSentenceLearning: this.getValue('features.openai.enableSentenceLearning') !== 'false',
+                enableSentenceLearning: this.requireBooleanString(
+                    this.getValue('features.openai.enableSentenceLearning'),
+                    'features.openai.enableSentenceLearning',
+                ),
                 subtitleTranslationMode: subtitleMode,
                 subtitleCustomStyle,
                 featureModels: {
-                    sentenceLearning: this.resolveFeatureModel(this.getValue('models.openai.sentenceLearning'), availableModels),
-                    subtitleTranslation: this.resolveFeatureModel(this.getValue('models.openai.subtitleTranslation'), availableModels),
-                    dictionary: this.resolveFeatureModel(this.getValue('models.openai.dictionary'), availableModels),
+                    sentenceLearning: sentenceLearningModel,
+                    subtitleTranslation: subtitleTranslationModel,
+                    dictionary: dictionaryModel,
                 },
             },
             providers: {
@@ -210,11 +272,29 @@ export default class SettingServiceImpl implements SettingService {
         };
     }
 
-    public async updateEngineSelection(settings: EngineSelectionSettingVO): Promise<void> {
-        const subtitleTranslationEngine = this.normalizeSubtitleEngine(settings.providers.subtitleTranslationEngine);
-        const dictionaryEngine = this.normalizeDictionaryEngine(settings.providers.dictionaryEngine);
-        const transcriptionEngine = this.normalizeTranscriptionEngine(settings.providers.transcriptionEngine);
+    /**
+     * 保存功能设置页面数据，不进行静默回退。
+     */
+    public async saveEngineSelection(settings: EngineSelectionSettingVO): Promise<void> {
+        const subtitleTranslationEngine = this.requireEnumValue(
+            settings.providers.subtitleTranslationEngine,
+            ['openai', 'tencent', 'none'] as const,
+            'providers.subtitleTranslationEngine',
+        );
+        const dictionaryEngine = this.requireEnumValue(
+            settings.providers.dictionaryEngine,
+            ['openai', 'youdao', 'none'] as const,
+            'providers.dictionaryEngine',
+        );
+        const transcriptionEngine = this.requireEnumValue(
+            settings.providers.transcriptionEngine,
+            ['openai', 'whisper', 'none'] as const,
+            'providers.transcriptionEngine',
+        );
         const availableModels = this.parseOpenAiModels(this.getValue('models.openai.available'));
+        if (availableModels.length === 0) {
+            throw new Error('models.openai.available 为空，无法保存功能模型选择');
+        }
 
         if (transcriptionEngine === 'whisper') {
             const whisperStatus = this.isWhisperModelReady();
@@ -228,30 +308,39 @@ export default class SettingServiceImpl implements SettingService {
         await this.setValue('providers.dictionary', dictionaryEngine);
         await this.setValue('providers.transcription', transcriptionEngine);
 
-        const subtitleMode = settings.openai.subtitleTranslationMode;
-        const normalizedMode: 'zh' | 'simple_en' | 'custom' =
-            subtitleMode === 'simple_en' || subtitleMode === 'custom' ? subtitleMode : 'zh';
-
-        const customStyle = (settings.openai.subtitleCustomStyle ?? '').trim();
+        const subtitleMode = this.requireEnumValue(
+            settings.openai.subtitleTranslationMode,
+            ['zh', 'simple_en', 'custom'] as const,
+            'openai.subtitleTranslationMode',
+        );
 
         await this.setValue('features.openai.enableSentenceLearning', settings.openai.enableSentenceLearning ? 'true' : 'false');
-        await this.setValue('features.openai.subtitleTranslationMode', normalizedMode);
-        await this.setValue(
-            'features.openai.subtitleCustomStyle',
-            customStyle.length > 0 ? customStyle : getSubtitleDefaultStyle('custom'),
-        );
+        await this.setValue('features.openai.subtitleTranslationMode', subtitleMode);
+        await this.setValue('features.openai.subtitleCustomStyle', settings.openai.subtitleCustomStyle);
 
         await this.setValue(
             'models.openai.sentenceLearning',
-            this.resolveFeatureModel(settings.openai.featureModels.sentenceLearning, availableModels),
+            this.requireFeatureModelAvailable(
+                settings.openai.featureModels.sentenceLearning,
+                availableModels,
+                'openai.featureModels.sentenceLearning',
+            ),
         );
         await this.setValue(
             'models.openai.subtitleTranslation',
-            this.resolveFeatureModel(settings.openai.featureModels.subtitleTranslation, availableModels),
+            this.requireFeatureModelAvailable(
+                settings.openai.featureModels.subtitleTranslation,
+                availableModels,
+                'openai.featureModels.subtitleTranslation',
+            ),
         );
         await this.setValue(
             'models.openai.dictionary',
-            this.resolveFeatureModel(settings.openai.featureModels.dictionary, availableModels),
+            this.requireFeatureModelAvailable(
+                settings.openai.featureModels.dictionary,
+                availableModels,
+                'openai.featureModels.dictionary',
+            ),
         );
     }
 
