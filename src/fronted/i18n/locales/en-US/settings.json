@@ -60,6 +60,11 @@
         "resetDefault": "Reset to default",
         "dialogTitle": "Capture shortcut",
         "dialogDescription": "Focus the input below, then press the shortcut you want to add.",
+        "dialogCurrentShortcuts": "Current shortcuts",
+        "dialogNoShortcuts": "No shortcuts yet",
+        "dialogAddRecorded": "Add recorded shortcut",
+        "dialogRemoveShortcut": "Remove shortcut",
+        "dialogResetDefault": "Reset to default",
         "saveChanges": "Save changes",
         "tableHeader": {
             "action": "Action",

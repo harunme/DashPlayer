@@ -26,7 +26,7 @@ import {
     TooltipProvider,
     TooltipTrigger,
 } from '@/fronted/components/ui/tooltip';
-import { Eraser, Pencil, SquarePlus } from 'lucide-react';
+import { Eraser, Pencil, X } from 'lucide-react';
 import { SettingKeyObj } from '@/common/types/store_schema';
 import { useForm, Controller } from 'react-hook-form';
 import { backendClient } from '@/fronted/application/bootstrap/backendClient';
@@ -39,16 +39,20 @@ import { ShortcutSettingDetailVO, ShortcutSettingSaveVO } from '@/common/types/v
 
 const api = backendClient;
 
-type ShortcutRecordMode = 'append' | 'replace';
+/**
+ * 解析快捷键字符串，规范化并去重。
+ */
+const parseShortcutList = (value: string): string[] => Array.from(new Set(
+    value
+        .split(',')
+        .map((item) => item.trim().replaceAll(' ', ''))
+        .filter((item) => item !== ''),
+));
 
 /**
- * 合并原有快捷键与新录入快捷键，去重后返回逗号分隔字符串。
+ * 将快捷键数组转为配置存储的逗号分隔字符串。
  */
-const merge = (a: string, b: string) => {
-    const aArr = a.split(',');
-    const bArr = b.split(',');
-    return Array.from(new Set([...aArr, ...bArr].filter((item) => item !== ''))).join(',');
-};
+const stringifyShortcutList = (shortcuts: string[]): string => shortcuts.join(',');
 
 /**
  * 将快捷键字段名转换为配置仓库里的 `shortcut.xxx` 键名。
@@ -61,58 +65,151 @@ const toShortcutStoreKey = (key: ShortcutKey): ShortcutStoreKey => `shortcut.${k
 const RecordDialog = ({
     title,
     value,
-    mode,
+    defaultValue,
     onChange,
     triggerRef,
     dialogTitle,
     dialogDescription,
     saveChangesLabel,
+    currentShortcutsLabel,
+    emptyShortcutsLabel,
+    addRecordedLabel,
+    removeShortcutLabel,
+    resetDefaultLabel,
 }: {
     title: string;
     value: string;
-    mode: ShortcutRecordMode;
+    defaultValue: string;
     onChange: (value: string) => void;
     triggerRef: React.RefObject<HTMLButtonElement>;
     dialogTitle: string;
     dialogDescription: string;
     saveChangesLabel: string;
+    currentShortcutsLabel: string;
+    emptyShortcutsLabel: string;
+    addRecordedLabel: string;
+    removeShortcutLabel: string;
+    resetDefaultLabel: string;
 }) => {
     const [keys, { start, stop }] = useRecordHotkeys();
+    const [open, setOpen] = React.useState(false);
+    const [shortcuts, setShortcuts] = React.useState<string[]>([]);
+
+    /**
+     * 从当前录制状态提取规范化快捷键字符串。
+     */
+    const getRecordedShortcut = React.useCallback((): string => {
+        return Array.from(keys).join('+').trim().replaceAll(' ', '');
+    }, [keys]);
+
+    /**
+     * 将录制到的快捷键追加到草稿列表，自动去重。
+     */
+    const appendRecordedShortcut = React.useCallback(() => {
+        const recordedShortcut = getRecordedShortcut();
+        if (!recordedShortcut) {
+            return;
+        }
+        setShortcuts((previous) => Array.from(new Set([...previous, recordedShortcut])));
+    }, [getRecordedShortcut]);
+
+    /**
+     * 从草稿列表移除指定快捷键。
+     */
+    const removeShortcut = React.useCallback((shortcut: string) => {
+        setShortcuts((previous) => previous.filter((item) => item !== shortcut));
+    }, []);
+
+    /**
+     * 保存弹窗内草稿并回写到表单字段。
+     */
+    const submitChanges = React.useCallback(() => {
+        onChange(stringifyShortcutList(shortcuts));
+    }, [onChange, shortcuts]);
+
+    /**
+     * 重置为默认值（仅更新草稿，不立即生效）。
+     */
+    const resetToDefault = React.useCallback(() => {
+        setShortcuts(parseShortcutList(defaultValue));
+    }, [defaultValue]);
+
     return (
-        <Dialog onOpenChange={(open) => { if (!open) stop(); }}>
+        <Dialog
+            open={open}
+            onOpenChange={(nextOpen) => {
+                setOpen(nextOpen);
+                if (nextOpen) {
+                    setShortcuts(parseShortcutList(value));
+                    return;
+                }
+                stop();
+            }}
+        >
             <DialogTrigger asChild>
                 <Button ref={triggerRef} className="hidden">Open</Button>
             </DialogTrigger>
-            <DialogContent className="sm:max-w-[425px]">
+            <DialogContent className="sm:max-w-[500px]">
                 <DialogHeader>
                     <DialogTitle>{dialogTitle}</DialogTitle>
                     <DialogDescription>{dialogDescription}</DialogDescription>
                 </DialogHeader>
-                <div className="grid gap-4 py-4">
-                    <Label htmlFor="shortcut-input">{title}</Label>
-                    <Input
-                        id="shortcut-input"
-                        readOnly
-                        onFocus={start}
-                        onBlur={stop}
-                        value={Array.from(keys).join(' + ')}
-                        className="col-span-3"
-                    />
+                <div className="space-y-4 py-4">
+                    <div className="space-y-2">
+                        <Label htmlFor="shortcut-input">{title}</Label>
+                        <div className="flex gap-2">
+                            <Input
+                                id="shortcut-input"
+                                readOnly
+                                onFocus={start}
+                                onBlur={stop}
+                                value={Array.from(keys).join(' + ')}
+                                className="flex-1"
+                            />
+                            <Button type="button" variant="outline" onClick={appendRecordedShortcut}>
+                                {addRecordedLabel}
+                            </Button>
+                        </div>
+                    </div>
+                    <div className="space-y-2">
+                        <div className="flex items-center justify-between">
+                            <div className="text-sm font-medium">{currentShortcutsLabel}</div>
+                            <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                className="h-7 text-xs"
+                                onClick={resetToDefault}
+                            >
+                                <Eraser className="h-3 w-3 mr-1" />
+                                {resetDefaultLabel}
+                            </Button>
+                        </div>
+                        {shortcuts.length === 0 ? (
+                            <div className="text-xs text-muted-foreground py-2">{emptyShortcutsLabel}</div>
+                        ) : (
+                            <div className="flex flex-wrap gap-1.5 p-2 rounded-md border border-border bg-muted/30 min-h-[60px]">
+                                {shortcuts.map((shortcut) => (
+                                    <span key={shortcut} className="inline-flex items-center rounded border border-border bg-background px-2 py-1 text-xs font-mono text-foreground shadow-sm">
+                                        {shortcut.split('+').map((k) => k.charAt(0).toUpperCase() + k.slice(1)).join(' + ')}
+                                        <button
+                                            type="button"
+                                            className="ml-1.5 inline-flex items-center text-muted-foreground hover:text-destructive transition-colors"
+                                            title={removeShortcutLabel}
+                                            onClick={() => removeShortcut(shortcut)}
+                                        >
+                                            <X className="h-3 w-3" />
+                                        </button>
+                                    </span>
+                                ))}
+                            </div>
+                        )}
+                    </div>
                 </div>
                 <DialogFooter>
                     <DialogClose asChild>
                         <Button
-                            onClick={() => {
-                                const recordedShortcut = Array.from(keys).join('+');
-                                if (!recordedShortcut) {
-                                    return;
-                                }
-                                if (mode === 'replace') {
-                                    onChange(recordedShortcut);
-                                    return;
-                                }
-                                onChange(merge(value, recordedShortcut));
-                            }}
+                            onClick={submitChanges}
                             type="submit"
                         >
                             {saveChangesLabel}
@@ -215,12 +312,16 @@ const ShortcutSetting = () => {
                                             value={field.value ?? ''}
                                             defaultValue={SettingKeyObj[toShortcutStoreKey(item.key)]}
                                             onChange={field.onChange}
-                                            appendLabel={t('shortcut.record')}
                                             editLabel={t('shortcut.edit')}
                                             resetDefaultLabel={t('shortcut.resetDefault')}
                                             dialogTitle={t('shortcut.dialogTitle')}
                                             dialogDescription={t('shortcut.dialogDescription')}
                                             saveChangesLabel={t('shortcut.saveChanges')}
+                                            currentShortcutsLabel={t('shortcut.dialogCurrentShortcuts')}
+                                            emptyShortcutsLabel={t('shortcut.dialogNoShortcuts')}
+                                            addRecordedLabel={t('shortcut.dialogAddRecorded')}
+                                            removeShortcutLabel={t('shortcut.dialogRemoveShortcut')}
+                                            dialogResetDefaultLabel={t('shortcut.dialogResetDefault')}
                                         />
                                     )}
                                 />
@@ -234,7 +335,7 @@ const ShortcutSetting = () => {
 };
 
 /**
- * 单行快捷键配置项：支持追加、编辑覆盖与恢复默认值。
+ * 单行快捷键配置项：提供编辑弹窗入口与恢复默认值操作。
  */
 const ShortcutRow = ({
     title,
@@ -242,27 +343,34 @@ const ShortcutRow = ({
     value,
     defaultValue,
     onChange,
-    appendLabel,
     editLabel,
     resetDefaultLabel,
     dialogTitle,
     dialogDescription,
     saveChangesLabel,
+    currentShortcutsLabel,
+    emptyShortcutsLabel,
+    addRecordedLabel,
+    removeShortcutLabel,
+    dialogResetDefaultLabel,
 }: {
     title: string;
     description: string;
     value: string;
     defaultValue: string;
     onChange: (value: string) => void;
-    appendLabel: string;
     editLabel: string;
     resetDefaultLabel: string;
     dialogTitle: string;
     dialogDescription: string;
     saveChangesLabel: string;
+    currentShortcutsLabel: string;
+    emptyShortcutsLabel: string;
+    addRecordedLabel: string;
+    removeShortcutLabel: string;
+    dialogResetDefaultLabel: string;
 }) => {
     const triggerRef = React.useRef<HTMLButtonElement>(null!);
-    const [mode, setMode] = React.useState<ShortcutRecordMode>('append');
     return (
         <TableRow className="group/row">
             <TableCell className="py-2">
@@ -282,21 +390,7 @@ const ShortcutRow = ({
                 <div className="flex items-center gap-0.5">
                     <Tooltip>
                         <TooltipTrigger asChild>
-                            <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground/95 hover:text-foreground" onClick={() => {
-                                setMode('append');
-                                triggerRef.current?.click();
-                            }}>
-                                <SquarePlus className="h-3.5 w-3.5" />
-                            </Button>
-                        </TooltipTrigger>
-                        <TooltipContent side="top"><p>{appendLabel}</p></TooltipContent>
-                    </Tooltip>
-                    <Tooltip>
-                        <TooltipTrigger asChild>
-                            <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground/95 hover:text-foreground" onClick={() => {
-                                setMode('replace');
-                                triggerRef.current?.click();
-                            }}>
+                            <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground/95 hover:text-foreground" onClick={() => triggerRef.current?.click()}>
                                 <Pencil className="h-3.5 w-3.5" />
                             </Button>
                         </TooltipTrigger>
@@ -314,12 +408,17 @@ const ShortcutRow = ({
                 <RecordDialog
                     title={title}
                     value={value}
-                    mode={mode}
+                    defaultValue={defaultValue}
                     onChange={onChange}
                     triggerRef={triggerRef}
                     dialogTitle={dialogTitle}
                     dialogDescription={dialogDescription}
                     saveChangesLabel={saveChangesLabel}
+                    currentShortcutsLabel={currentShortcutsLabel}
+                    emptyShortcutsLabel={emptyShortcutsLabel}
+                    addRecordedLabel={addRecordedLabel}
+                    removeShortcutLabel={removeShortcutLabel}
+                    resetDefaultLabel={dialogResetDefaultLabel}
                 />
             </TableCell>
         </TableRow>

@@ -60,6 +60,11 @@
         "resetDefault": "重置为默认值",
         "dialogTitle": "录入快捷键",
         "dialogDescription": "点击下面的输入框，然后按下你想要的快捷键。",
+        "dialogCurrentShortcuts": "当前快捷键",
+        "dialogNoShortcuts": "暂无快捷键",
+        "dialogAddRecorded": "录入并添加",
+        "dialogRemoveShortcut": "删除快捷键",
+        "dialogResetDefault": "重置为默认值",
         "saveChanges": "保存修改",
         "tableHeader": {
             "action": "功能",
