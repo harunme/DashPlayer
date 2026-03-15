@@ -6,7 +6,10 @@ import SettingService from '@/backend/application/services/SettingService';
 import { getMainLogger } from '@/backend/infrastructure/logger';
 import { SettingKey } from '@/common/types/store_schema';
 import SettingsKeyValueService from '@/backend/application/services/impl/SettingsKeyValueService';
-import { ServiceCredentialSettingVO } from '@/common/types/vo/service-credentials-setting-vo';
+import {
+    ServiceCredentialSettingDetailVO,
+    ServiceCredentialSettingSaveVO,
+} from '@/common/types/vo/service-credentials-setting-vo';
 import { EngineSelectionSettingVO } from '@/common/types/vo/engine-selection-setting-vo';
 
 @injectable()
@@ -18,14 +21,14 @@ export default class SettingsController implements Controller {
     /**
      * 获取服务凭据页面详情。
      */
-    public async getServiceCredentialsDetail(): Promise<ServiceCredentialSettingVO> {
+    public async getServiceCredentialsDetail(): Promise<ServiceCredentialSettingDetailVO> {
         return this.settingService.getServiceCredentialsDetail();
     }
 
     /**
      * 保存服务凭据页面数据。
      */
-    public async saveServiceCredentials(settings: ServiceCredentialSettingVO): Promise<void> {
+    public async saveServiceCredentials(settings: ServiceCredentialSettingSaveVO): Promise<void> {
         this.logger.info('update service credentials', {
             settings: {
                 ...settings,

@@ -183,8 +183,15 @@
         "downloadVadDone": "静音检测模型已下载。",
         "openai": {
             "description": "用于字幕翻译、词典与云端转录能力。",
-            "modelsLabel": "可用模型列表（每行一个）",
-            "modelsHint": "支持换行或逗号分隔。功能设置页会按这里的列表给各功能选模型。"
+            "modelsLabel": "可用模型列表",
+            "tableModel": "模型",
+            "tableUsage": "占用功能",
+            "tableAction": "操作",
+            "usageNone": "未占用",
+            "addPlaceholder": "输入模型标识，如 gpt-5.2",
+            "addButton": "添加",
+            "usedByHint": "已被功能占用的模型不可删除。",
+            "duplicateModel": "模型已存在：{{model}}"
         },
         "tencent": {
             "title": "腾讯翻译",

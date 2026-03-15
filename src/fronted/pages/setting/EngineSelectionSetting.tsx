@@ -10,25 +10,13 @@ import { Checkbox } from '@/fronted/components/ui/checkbox';
 import { Textarea } from '@/fronted/components/ui/textarea';
 import SettingsPageShell from '@/fronted/pages/setting/components/form/SettingsPageShell';
 import { EngineSelectionSettingVO } from '@/common/types/vo/engine-selection-setting-vo';
-import { ServiceCredentialSettingVO } from '@/common/types/vo/service-credentials-setting-vo';
+import { ServiceCredentialSettingDetailVO } from '@/common/types/vo/service-credentials-setting-vo';
 import { WhisperModelStatusVO } from '@/common/types/vo/whisper-model-vo';
 import { backendClient } from '@/fronted/application/bootstrap/backendClient';
 import { useTranslation as useI18nTranslation } from 'react-i18next';
 import { useAutoSaveSettingsForm } from '@/fronted/hooks/useAutoSaveSettingsForm';
 
 const api = backendClient;
-
-/**
- * 将服务端返回的 OpenAI 模型文本解析为可选模型列表。
- */
-const parseAvailableModels = (rawModels: string): string[] => {
-    const parsed = rawModels
-        .split(/[\n,]/)
-        .map((item) => item.trim())
-        .filter((item) => item.length > 0);
-
-    return Array.from(new Set(parsed));
-};
 
 /**
  * 功能设置页。
@@ -40,7 +28,7 @@ const EngineSelectionSetting = () => {
     const { data: settings } = useSWR('settings/engine-selection/detail', () =>
         api.call('settings/engine-selection/detail'),
     );
-    const { data: credentialSettings } = useSWR<ServiceCredentialSettingVO>(
+    const { data: credentialSettings } = useSWR<ServiceCredentialSettingDetailVO>(
         'settings/service-credentials/detail',
         () => api.call('settings/service-credentials/detail'),
     );
@@ -90,7 +78,7 @@ const EngineSelectionSetting = () => {
         if (!credentialSettings) {
             return [];
         }
-        return parseAvailableModels(credentialSettings.openai.models);
+        return credentialSettings.openai.models.map((item) => item.model);
     }, [credentialSettings]);
 
     const whisperSelectedModelSize = credentialSettings?.whisper.modelSize;

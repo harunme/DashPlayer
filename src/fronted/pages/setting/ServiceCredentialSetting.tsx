@@ -1,15 +1,15 @@
 import React from 'react';
 import { useForm } from 'react-hook-form';
 import useSWR from 'swr';
-import { Book, Bot, CheckCircle2, Cpu, Download, Languages, ShieldCheck, TestTube, XCircle } from 'lucide-react';
+import { Book, Bot, CheckCircle2, Cpu, Download, Languages, Plus, ShieldCheck, TestTube, Trash2, XCircle } from 'lucide-react';
 import { Button } from '@/fronted/components/ui/button';
 import { Input } from '@/fronted/components/ui/input';
 import { Label } from '@/fronted/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/fronted/components/ui/select';
 import { Progress } from '@/fronted/components/ui/progress';
-import { Textarea } from '@/fronted/components/ui/textarea';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/fronted/components/ui/table';
 import SettingsPageShell from '@/fronted/pages/setting/components/form/SettingsPageShell';
-import { ServiceCredentialSettingVO } from '@/common/types/vo/service-credentials-setting-vo';
+import { OpenAiModelUsageFeature, ServiceCredentialSettingDetailVO, ServiceCredentialSettingSaveVO } from '@/common/types/vo/service-credentials-setting-vo';
 import { WhisperModelStatusVO } from '@/common/types/vo/whisper-model-vo';
 import { backendClient } from '@/fronted/application/bootstrap/backendClient';
 import { useToast } from '@/fronted/components/ui/use-toast';
@@ -28,7 +28,7 @@ const ServiceCredentialSetting = () => {
         api.call('settings/service-credentials/detail'),
     );
 
-    const form = useForm<ServiceCredentialSettingVO>();
+    const form = useForm<ServiceCredentialSettingDetailVO>();
     const { register, setValue, watch } = form;
 
     const {
@@ -37,10 +37,17 @@ const ServiceCredentialSetting = () => {
         error: autoSaveError,
         initialize,
         flush,
-    } = useAutoSaveSettingsForm<ServiceCredentialSettingVO>({
+    } = useAutoSaveSettingsForm<ServiceCredentialSettingDetailVO>({
         form,
         onSave: async (values) => {
-            await api.call('settings/service-credentials/save', values);
+            const payload: ServiceCredentialSettingSaveVO = {
+                ...values,
+                openai: {
+                    ...values.openai,
+                    models: values.openai.models.map((item) => item.model),
+                },
+            };
+            await api.call('settings/service-credentials/save', payload);
         },
     });
 
@@ -52,9 +59,15 @@ const ServiceCredentialSetting = () => {
     const [downloadingWhisperModel, setDownloadingWhisperModel] = React.useState(false);
     const [downloadingVadModel, setDownloadingVadModel] = React.useState(false);
     const [downloadProgressByKey, setDownloadProgressByKey] = React.useState<Record<string, { percent: number }>>({});
+    const usageLabelMap: Record<OpenAiModelUsageFeature, string> = React.useMemo(() => ({
+        sentenceLearning: t('engineSelection.sentenceLearning.title'),
+        subtitleTranslation: t('engineSelection.subtitleTranslation.title'),
+        dictionary: t('engineSelection.dictionary.title'),
+    }), [t]);
 
     const whisperModelSize = watch('whisper.modelSize');
-    const openAiModelsText = watch('openai.models');
+    const openAiModels = watch('openai.models');
+    const [newOpenAiModel, setNewOpenAiModel] = React.useState('');
 
     /**
      * 刷新 Whisper 模型状态。
@@ -139,6 +152,54 @@ const ServiceCredentialSetting = () => {
     };
 
     /**
+     * 添加 OpenAI 可用模型。
+     */
+    const handleAddOpenAiModel = () => {
+        const model = newOpenAiModel.trim();
+        if (!model) {
+            return;
+        }
+        if (!openAiModels) {
+            throw new Error('openai.models 未初始化');
+        }
+        if (openAiModels.some((item) => item.model === model)) {
+            toast({
+                variant: 'destructive',
+                title: t('common.saveFailed'),
+                description: t('serviceCredentials.openai.duplicateModel', { model }),
+            });
+            return;
+        }
+        setValue(
+            'openai.models',
+            [...openAiModels, { model, inUseBy: [] }],
+            { shouldDirty: true },
+        );
+        setNewOpenAiModel('');
+    };
+
+    /**
+     * 删除 OpenAI 可用模型（被占用模型禁止删除）。
+     */
+    const handleDeleteOpenAiModel = (model: string) => {
+        if (!openAiModels) {
+            throw new Error('openai.models 未初始化');
+        }
+        const target = openAiModels.find((item) => item.model === model);
+        if (!target) {
+            throw new Error(`模型不存在：${model}`);
+        }
+        if (target.inUseBy.length > 0) {
+            return;
+        }
+        setValue(
+            'openai.models',
+            openAiModels.filter((item) => item.model !== model),
+            { shouldDirty: true },
+        );
+    };
+
+    /**
      * 下载当前选中的 Whisper 模型。
      */
     const downloadSelectedWhisperModel = async () => {
@@ -199,6 +260,9 @@ const ServiceCredentialSetting = () => {
             </div>
         );
     }
+    if (!openAiModels) {
+        throw new Error('openai.models 未初始化');
+    }
 
     return (
         <form
@@ -254,15 +318,52 @@ const ServiceCredentialSetting = () => {
                         </div>
                         <div className="space-y-2 md:col-span-2">
                             <Label>{t('serviceCredentials.openai.modelsLabel')}</Label>
-                            <Textarea
-                                value={openAiModelsText}
-                                onChange={(event) => {
-                                    setValue('openai.models', event.target.value, { shouldDirty: true });
-                                }}
-                                className="min-h-[120px]"
-                                placeholder={'gpt-5.2\ngpt-4o\no3-mini'}
-                            />
-                            <div className="text-xs text-muted-foreground">{t('serviceCredentials.openai.modelsHint')}</div>
+                            <div className="rounded-md border border-border/70 overflow-hidden">
+                                <Table>
+                                    <TableHeader>
+                                        <TableRow>
+                                            <TableHead>{t('serviceCredentials.openai.tableModel')}</TableHead>
+                                            <TableHead>{t('serviceCredentials.openai.tableUsage')}</TableHead>
+                                            <TableHead className="w-28 text-right">{t('serviceCredentials.openai.tableAction')}</TableHead>
+                                        </TableRow>
+                                    </TableHeader>
+                                    <TableBody>
+                                        {openAiModels.map((item) => (
+                                            <TableRow key={item.model}>
+                                                <TableCell className="font-mono text-sm">{item.model}</TableCell>
+                                                <TableCell>
+                                                    {item.inUseBy.length > 0
+                                                        ? item.inUseBy.map((feature) => usageLabelMap[feature]).join(' / ')
+                                                        : t('serviceCredentials.openai.usageNone')}
+                                                </TableCell>
+                                                <TableCell className="text-right">
+                                                    <Button
+                                                        type="button"
+                                                        variant="ghost"
+                                                        size="sm"
+                                                        disabled={item.inUseBy.length > 0}
+                                                        onClick={() => handleDeleteOpenAiModel(item.model)}
+                                                    >
+                                                        <Trash2 className="w-4 h-4" />
+                                                    </Button>
+                                                </TableCell>
+                                            </TableRow>
+                                        ))}
+                                    </TableBody>
+                                </Table>
+                            </div>
+                            <div className="flex items-center gap-2">
+                                <Input
+                                    value={newOpenAiModel}
+                                    onChange={(event) => setNewOpenAiModel(event.target.value)}
+                                    placeholder={t('serviceCredentials.openai.addPlaceholder')}
+                                />
+                                <Button type="button" variant="outline" onClick={handleAddOpenAiModel}>
+                                    <Plus className="w-4 h-4 mr-1" />
+                                    {t('serviceCredentials.openai.addButton')}
+                                </Button>
+                            </div>
+                            <div className="text-xs text-muted-foreground">{t('serviceCredentials.openai.usedByHint')}</div>
                         </div>
                     </div>
                 </div>

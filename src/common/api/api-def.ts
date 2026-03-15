@@ -18,7 +18,10 @@ import {VideoLearningClipPage} from '@/common/types/vo/VideoLearningClipVO';
 import { GlobalVideoLearningClipQueueStatusVO, VideoLearningClipStatusVO } from '@/common/types/vo/VideoLearningClipStatusVO';
 import { ChatStartParams, ChatStartResult, ChatWelcomeParams } from '@/common/types/chat';
 import { AnalysisStartParams, AnalysisStartResult } from '@/common/types/analysis';
-import { ServiceCredentialSettingVO } from '@/common/types/vo/service-credentials-setting-vo';
+import {
+    ServiceCredentialSettingDetailVO,
+    ServiceCredentialSettingSaveVO,
+} from '@/common/types/vo/service-credentials-setting-vo';
 import { EngineSelectionSettingVO } from '@/common/types/vo/engine-selection-setting-vo';
 import { WhisperModelStatusVO, WhisperModelSize, WhisperVadModel } from '@/common/types/vo/whisper-model-vo';
 import { VideoInfo } from '@/common/types/video-info';
@@ -151,8 +154,8 @@ interface StorageDef {
 }
 
 interface SettingsDef {
-    'settings/service-credentials/detail': { params: void, return: ServiceCredentialSettingVO };
-    'settings/service-credentials/save': { params: ServiceCredentialSettingVO, return: void };
+    'settings/service-credentials/detail': { params: void, return: ServiceCredentialSettingDetailVO };
+    'settings/service-credentials/save': { params: ServiceCredentialSettingSaveVO, return: void };
     'settings/service-credentials/test-openai': { params: void, return: { success: boolean, message: string } };
     'settings/service-credentials/test-tencent': { params: void, return: { success: boolean, message: string } };
     'settings/service-credentials/test-youdao': { params: void, return: { success: boolean, message: string } };

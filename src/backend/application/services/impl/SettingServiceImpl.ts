@@ -11,7 +11,12 @@ import { YouDaoDictionaryClient } from '@/backend/application/ports/gateways/tra
 import { getMainLogger } from '@/backend/infrastructure/logger';
 import RendererEvents from '@/backend/application/ports/gateways/renderer/RendererEvents';
 import { SettingsStore } from '@/backend/application/ports/gateways/SettingsStore';
-import { ServiceCredentialSettingVO } from '@/common/types/vo/service-credentials-setting-vo';
+import {
+    OpenAiAvailableModelDetailVO,
+    OpenAiModelUsageFeature,
+    ServiceCredentialSettingDetailVO,
+    ServiceCredentialSettingSaveVO,
+} from '@/common/types/vo/service-credentials-setting-vo';
 import { EngineSelectionSettingVO } from '@/common/types/vo/engine-selection-setting-vo';
 import { getSubtitleDefaultStyle } from '@/common/constants/openaiSubtitlePrompts';
 import LocationUtil from '@/backend/utils/LocationUtil';
@@ -102,6 +107,37 @@ export default class SettingServiceImpl implements SettingService {
     }
 
     /**
+     * 读取当前功能模型占用关系。
+     */
+    private getOpenAiFeatureModelUsage(): Record<OpenAiModelUsageFeature, string> {
+        return {
+            sentenceLearning: this.getValue('models.openai.sentenceLearning'),
+            subtitleTranslation: this.getValue('models.openai.subtitleTranslation'),
+            dictionary: this.getValue('models.openai.dictionary'),
+        };
+    }
+
+    /**
+     * 构建可用模型详情并标记占用来源。
+     */
+    private buildOpenAiModelDetails(availableModels: string[]): OpenAiAvailableModelDetailVO[] {
+        const usageByFeature = this.getOpenAiFeatureModelUsage();
+        const usageMap = new Map<string, OpenAiModelUsageFeature[]>();
+
+        for (const feature of Object.keys(usageByFeature) as OpenAiModelUsageFeature[]) {
+            const model = usageByFeature[feature];
+            const list = usageMap.get(model) ?? [];
+            list.push(feature);
+            usageMap.set(model, list);
+        }
+
+        return availableModels.map((model) => ({
+            model,
+            inUseBy: usageMap.get(model) ?? [],
+        }));
+    }
+
+    /**
      * 校验功能模型是否在可用模型列表中。
      */
     private requireFeatureModelAvailable(candidate: string, availableModels: string[], fieldName: string): string {
@@ -135,10 +171,12 @@ export default class SettingServiceImpl implements SettingService {
      * 查询服务凭据设置。
      *
      * 返回说明：
-     * - `openai.models` 直接返回存储中的原始文本，保留用户输入格式；
+     * - `openai.models` 返回结构化模型列表，并附带占用信息；
      * - 其他字段按当前存储值映射为设置页表单结构。
      */
-    public async getServiceCredentialsDetail(): Promise<ServiceCredentialSettingVO> {
+    public async getServiceCredentialsDetail(): Promise<ServiceCredentialSettingDetailVO> {
+        const availableModels = this.parseOpenAiModels(this.getValue('models.openai.available'));
+        const modelDetails = this.buildOpenAiModelDetails(availableModels);
         const whisperModelSize = this.requireEnumValue(
             this.getValue('whisper.modelSize'),
             ['base', 'large'] as const,
@@ -153,7 +191,7 @@ export default class SettingServiceImpl implements SettingService {
             openai: {
                 key: this.getValue('apiKeys.openAi.key'),
                 endpoint: this.getValue('apiKeys.openAi.endpoint'),
-                models: this.getValue('models.openai.available'),
+                models: modelDetails,
             },
             tencent: {
                 secretId: this.getValue('apiKeys.tencent.secretId'),
@@ -175,13 +213,33 @@ export default class SettingServiceImpl implements SettingService {
      * 更新服务凭据设置。
      *
      * 行为说明：
-     * - `openai.models` 原样写回存储，避免编辑过程中丢失逗号、换行等格式；
-     * - 真正用于路由和功能模型兜底时，再临时解析模型列表文本。
+     * - `openai.models` 使用结构化数组保存为标准换行文本；
+     * - 当前被功能占用的模型禁止删除。
      */
-    public async saveServiceCredentials(settings: ServiceCredentialSettingVO): Promise<void> {
+    public async saveServiceCredentials(settings: ServiceCredentialSettingSaveVO): Promise<void> {
+        const currentAvailableModels = this.parseOpenAiModels(this.getValue('models.openai.available'));
+        const parsedModels = settings.openai.models.map((item) => item.trim());
+        if (parsedModels.some((item) => item.length === 0)) {
+            throw new Error('openai.models 包含空模型标识');
+        }
+        const dedupedModels = Array.from(new Set(parsedModels));
+        if (dedupedModels.length !== parsedModels.length) {
+            throw new Error('openai.models 包含重复模型标识');
+        }
+
+        const usageByFeature = this.getOpenAiFeatureModelUsage();
+        const removedModels = currentAvailableModels.filter((model) => !dedupedModels.includes(model));
+        for (const removedModel of removedModels) {
+            for (const feature of Object.keys(usageByFeature) as OpenAiModelUsageFeature[]) {
+                if (usageByFeature[feature] === removedModel) {
+                    throw new Error(`模型 ${removedModel} 正被功能 ${feature} 使用，不能删除`);
+                }
+            }
+        }
+
         await this.setValue('apiKeys.openAi.key', settings.openai.key);
         await this.setValue('apiKeys.openAi.endpoint', settings.openai.endpoint);
-        await this.setValue('models.openai.available', settings.openai.models);
+        await this.setValue('models.openai.available', dedupedModels.join('\n'));
 
         await this.setValue('apiKeys.tencent.secretId', settings.tencent.secretId);
         await this.setValue('apiKeys.tencent.secretKey', settings.tencent.secretKey);
@@ -229,26 +287,6 @@ export default class SettingServiceImpl implements SettingService {
             'features.openai.subtitleTranslationMode',
         );
         const subtitleCustomStyle = this.getValue('features.openai.subtitleCustomStyle');
-        const availableModels = this.parseOpenAiModels(this.getValue('models.openai.available'));
-        if (availableModels.length === 0) {
-            throw new Error('models.openai.available 为空，无法渲染功能模型选择');
-        }
-
-        const sentenceLearningModel = this.requireFeatureModelAvailable(
-            this.getValue('models.openai.sentenceLearning'),
-            availableModels,
-            'models.openai.sentenceLearning',
-        );
-        const subtitleTranslationModel = this.requireFeatureModelAvailable(
-            this.getValue('models.openai.subtitleTranslation'),
-            availableModels,
-            'models.openai.subtitleTranslation',
-        );
-        const dictionaryModel = this.requireFeatureModelAvailable(
-            this.getValue('models.openai.dictionary'),
-            availableModels,
-            'models.openai.dictionary',
-        );
 
         return {
             openai: {
@@ -259,9 +297,9 @@ export default class SettingServiceImpl implements SettingService {
                 subtitleTranslationMode: subtitleMode,
                 subtitleCustomStyle,
                 featureModels: {
-                    sentenceLearning: sentenceLearningModel,
-                    subtitleTranslation: subtitleTranslationModel,
-                    dictionary: dictionaryModel,
+                    sentenceLearning: this.getValue('models.openai.sentenceLearning'),
+                    subtitleTranslation: this.getValue('models.openai.subtitleTranslation'),
+                    dictionary: this.getValue('models.openai.dictionary'),
                 },
             },
             providers: {
@@ -295,7 +333,6 @@ export default class SettingServiceImpl implements SettingService {
         if (availableModels.length === 0) {
             throw new Error('models.openai.available 为空，无法保存功能模型选择');
         }
-
         if (transcriptionEngine === 'whisper') {
             const whisperStatus = this.isWhisperModelReady();
             if (!whisperStatus.ready) {

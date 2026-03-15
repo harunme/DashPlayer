@@ -183,8 +183,15 @@
         "downloadVadDone": "VAD model downloaded.",
         "openai": {
             "description": "Used for subtitle translation, dictionary lookup, and cloud transcription.",
-            "modelsLabel": "Available models (one per line)",
-            "modelsHint": "Supports newline or comma separators. Feature Controls uses this list for model selection per feature."
+            "modelsLabel": "Available models",
+            "tableModel": "Model",
+            "tableUsage": "Used by",
+            "tableAction": "Action",
+            "usageNone": "Not used",
+            "addPlaceholder": "Enter model id, e.g. gpt-5.2",
+            "addButton": "Add",
+            "usedByHint": "Models used by features cannot be deleted.",
+            "duplicateModel": "Model already exists: {{model}}"
         },
         "tencent": {
             "title": "Tencent Translation",
