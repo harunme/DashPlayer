@@ -16,6 +16,9 @@ const process = (values: string) => values
     .filter((k) => k !== '')
     .filter((k) => k !== 'left' && k !== 'right' && k !== 'up' && k !== 'down' && k !== 'space');
 
+/**
+ * 注册播放器页快捷键，并在快捷键配置变化后即时重绑。
+ */
 export default function PlayerShortCut() {
     const {
         changeShowEn,
@@ -38,7 +41,27 @@ export default function PlayerShortCut() {
         }))
     );
 
-    const setting = useSetting((s) => s.setting);
+    const shortcuts = useSetting(useShallow((s) => ({
+        previousSentence: s.values.get('shortcut.previousSentence') ?? '',
+        nextSentence: s.values.get('shortcut.nextSentence') ?? '',
+        repeatSentence: s.values.get('shortcut.repeatSentence') ?? '',
+        playPause: s.values.get('shortcut.playPause') ?? '',
+        repeatSingleSentence: s.values.get('shortcut.repeatSingleSentence') ?? '',
+        autoPause: s.values.get('shortcut.autoPause') ?? '',
+        toggleEnglishDisplay: s.values.get('shortcut.toggleEnglishDisplay') ?? '',
+        toggleChineseDisplay: s.values.get('shortcut.toggleChineseDisplay') ?? '',
+        toggleBilingualDisplay: s.values.get('shortcut.toggleBilingualDisplay') ?? '',
+        adjustBeginMinus: s.values.get('shortcut.adjustBeginMinus') ?? '',
+        adjustBeginPlus: s.values.get('shortcut.adjustBeginPlus') ?? '',
+        adjustEndMinus: s.values.get('shortcut.adjustEndMinus') ?? '',
+        adjustEndPlus: s.values.get('shortcut.adjustEndPlus') ?? '',
+        clearAdjust: s.values.get('shortcut.clearAdjust') ?? '',
+        toggleWordLevelDisplay: s.values.get('shortcut.toggleWordLevelDisplay') ?? '',
+        nextPlaybackRate: s.values.get('shortcut.nextPlaybackRate') ?? '',
+        aiChat: s.values.get('shortcut.aiChat') ?? '',
+        toggleCopyMode: s.values.get('shortcut.toggleCopyMode') ?? '',
+        addClip: s.values.get('shortcut.addClip') ?? '',
+    })));
     const { createFromCurrent } = useChatPanel(useShallow((s) => ({
         createFromCurrent: s.createFromCurrent
     })));
@@ -83,60 +106,60 @@ export default function PlayerShortCut() {
         e.preventDefault();
         playerV2Actions.togglePlay();
     });
-    useHotkeys(process(setting('shortcut.previousSentence')), () => {
+    useHotkeys(process(shortcuts.previousSentence), () => {
         playerV2Actions.prevSentence();
         if (scrollState === 'USER_BROWSING') {
             onUserFinishScrolling();
         }
     });
-    useHotkeys(process(setting('shortcut.nextSentence')), () => {
+    useHotkeys(process(shortcuts.nextSentence), () => {
         playerV2Actions.nextSentence();
         if (scrollState === 'USER_BROWSING') {
             onUserFinishScrolling();
         }
     });
-    useHotkeys(process(setting('shortcut.repeatSentence')), () => {
+    useHotkeys(process(shortcuts.repeatSentence), () => {
         playerV2Actions.repeatCurrent({ loop: false });
         if (scrollState === 'USER_BROWSING') {
             onUserFinishScrolling();
         }
     });
-    useHotkeys(process(setting('shortcut.playPause')), playerV2Actions.togglePlay.bind(playerV2Actions));
-    useHotkeys(process(setting('shortcut.repeatSingleSentence')), toggleSingleRepeat);
-    useHotkeys(process(setting('shortcut.autoPause')), toggleAutoPause);
-    useHotkeys(process(setting('shortcut.toggleEnglishDisplay')), changeShowEn);
-    useHotkeys(process(setting('shortcut.toggleChineseDisplay')), changeShowCn);
-    useHotkeys(process(setting('shortcut.toggleBilingualDisplay')), changeShowEnCn);
-    useHotkeys(process(setting('shortcut.adjustBeginMinus')), () => {
+    useHotkeys(process(shortcuts.playPause), playerV2Actions.togglePlay.bind(playerV2Actions));
+    useHotkeys(process(shortcuts.repeatSingleSentence), toggleSingleRepeat);
+    useHotkeys(process(shortcuts.autoPause), toggleAutoPause);
+    useHotkeys(process(shortcuts.toggleEnglishDisplay), changeShowEn);
+    useHotkeys(process(shortcuts.toggleChineseDisplay), changeShowCn);
+    useHotkeys(process(shortcuts.toggleBilingualDisplay), changeShowEnCn);
+    useHotkeys(process(shortcuts.adjustBeginMinus), () => {
         playerV2Actions.adjustCurrentBegin(-0.2);
     });
-    useHotkeys(process(setting('shortcut.adjustBeginPlus')), () => {
+    useHotkeys(process(shortcuts.adjustBeginPlus), () => {
         playerV2Actions.adjustCurrentBegin(0.2);
     });
-    useHotkeys(process(setting('shortcut.adjustEndMinus')), () => {
+    useHotkeys(process(shortcuts.adjustEndMinus), () => {
         playerV2Actions.adjustCurrentEnd(-0.2);
     });
-    useHotkeys(process(setting('shortcut.adjustEndPlus')), () => {
+    useHotkeys(process(shortcuts.adjustEndPlus), () => {
         playerV2Actions.adjustCurrentEnd(0.2);
     });
-    useHotkeys(process(setting('shortcut.clearAdjust')), () => {
+    useHotkeys(process(shortcuts.clearAdjust), () => {
         void playerV2Actions.clearAdjust();
     });
-    useHotkeys(process(setting('shortcut.toggleWordLevelDisplay')), changeShowWordLevel);
-    useHotkeys(process(setting('shortcut.nextPlaybackRate')), playerV2Actions.cyclePlaybackRate.bind(playerV2Actions));
-    useHotkeys(process(setting('shortcut.aiChat')), () => {
+    useHotkeys(process(shortcuts.toggleWordLevelDisplay), changeShowWordLevel);
+    useHotkeys(process(shortcuts.nextPlaybackRate), playerV2Actions.cyclePlaybackRate.bind(playerV2Actions));
+    useHotkeys(process(shortcuts.aiChat), () => {
         playerV2Actions.pause();
         createFromCurrent();
     });
 
-    useHotkeys(process(setting('shortcut.toggleCopyMode')), (ke, he) => {
+    useHotkeys(process(shortcuts.toggleCopyMode), (ke, he) => {
         if (ke.type === 'keydown' && !isCopyMode) {
             enterCopyMode();
         } else if (ke.type === 'keyup' && isCopyMode) {
             exitCopyMode();
         }
     }, { keyup: true, keydown: true });
-    useHotkeys(process(setting('shortcut.addClip')), async () => {
+    useHotkeys(process(shortcuts.addClip), async () => {
         useFavouriteClip.getState().changeCurrentLineClip();
     });
     return <></>;

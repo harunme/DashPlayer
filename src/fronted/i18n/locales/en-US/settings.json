@@ -56,6 +56,7 @@
         "title": "Shortcuts",
         "description": "Use commas to separate multiple shortcuts.",
         "record": "Record shortcut",
+        "edit": "Edit shortcut",
         "resetDefault": "Reset to default",
         "dialogTitle": "Capture shortcut",
         "dialogDescription": "Focus the input below, then press the shortcut you want to add.",

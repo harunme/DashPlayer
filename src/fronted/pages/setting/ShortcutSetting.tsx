@@ -26,7 +26,7 @@ import {
     TooltipProvider,
     TooltipTrigger,
 } from '@/fronted/components/ui/tooltip';
-import { Eraser, SquarePlus } from 'lucide-react';
+import { Eraser, Pencil, SquarePlus } from 'lucide-react';
 import { SettingKeyObj } from '@/common/types/store_schema';
 import { useForm, Controller } from 'react-hook-form';
 import { backendClient } from '@/fronted/application/bootstrap/backendClient';
@@ -39,10 +39,15 @@ import { ShortcutSettingDetailVO, ShortcutSettingSaveVO } from '@/common/types/v
 
 const api = backendClient;
 
+type ShortcutRecordMode = 'append' | 'replace';
+
+/**
+ * 合并原有快捷键与新录入快捷键，去重后返回逗号分隔字符串。
+ */
 const merge = (a: string, b: string) => {
     const aArr = a.split(',');
     const bArr = b.split(',');
-    return Array.from(new Set([...aArr, ...bArr])).join(',');
+    return Array.from(new Set([...aArr, ...bArr].filter((item) => item !== ''))).join(',');
 };
 
 /**
@@ -50,9 +55,13 @@ const merge = (a: string, b: string) => {
  */
 const toShortcutStoreKey = (key: ShortcutKey): ShortcutStoreKey => `shortcut.${key}`;
 
+/**
+ * 录制快捷键弹窗：根据模式执行“追加”或“覆盖”保存。
+ */
 const RecordDialog = ({
     title,
     value,
+    mode,
     onChange,
     triggerRef,
     dialogTitle,
@@ -61,6 +70,7 @@ const RecordDialog = ({
 }: {
     title: string;
     value: string;
+    mode: ShortcutRecordMode;
     onChange: (value: string) => void;
     triggerRef: React.RefObject<HTMLButtonElement>;
     dialogTitle: string;
@@ -92,7 +102,17 @@ const RecordDialog = ({
                 <DialogFooter>
                     <DialogClose asChild>
                         <Button
-                            onClick={() => onChange(merge(value, Array.from(keys).join('+')))}
+                            onClick={() => {
+                                const recordedShortcut = Array.from(keys).join('+');
+                                if (!recordedShortcut) {
+                                    return;
+                                }
+                                if (mode === 'replace') {
+                                    onChange(recordedShortcut);
+                                    return;
+                                }
+                                onChange(merge(value, recordedShortcut));
+                            }}
                             type="submit"
                         >
                             {saveChangesLabel}
@@ -104,6 +124,9 @@ const RecordDialog = ({
     );
 };
 
+/**
+ * 快捷键设置页面：展示全部动作并支持自动保存。
+ */
 const ShortcutSetting = () => {
     const { t } = useI18nTranslation('settings');
     const { data: shortcutValues } = useSWR<ShortcutSettingDetailVO>(
@@ -192,7 +215,8 @@ const ShortcutSetting = () => {
                                             value={field.value ?? ''}
                                             defaultValue={SettingKeyObj[toShortcutStoreKey(item.key)]}
                                             onChange={field.onChange}
-                                            recordLabel={t('shortcut.record')}
+                                            appendLabel={t('shortcut.record')}
+                                            editLabel={t('shortcut.edit')}
                                             resetDefaultLabel={t('shortcut.resetDefault')}
                                             dialogTitle={t('shortcut.dialogTitle')}
                                             dialogDescription={t('shortcut.dialogDescription')}
@@ -209,13 +233,17 @@ const ShortcutSetting = () => {
     );
 };
 
+/**
+ * 单行快捷键配置项：支持追加、编辑覆盖与恢复默认值。
+ */
 const ShortcutRow = ({
     title,
     description,
     value,
     defaultValue,
     onChange,
-    recordLabel,
+    appendLabel,
+    editLabel,
     resetDefaultLabel,
     dialogTitle,
     dialogDescription,
@@ -226,13 +254,15 @@ const ShortcutRow = ({
     value: string;
     defaultValue: string;
     onChange: (value: string) => void;
-    recordLabel: string;
+    appendLabel: string;
+    editLabel: string;
     resetDefaultLabel: string;
     dialogTitle: string;
     dialogDescription: string;
     saveChangesLabel: string;
 }) => {
     const triggerRef = React.useRef<HTMLButtonElement>(null!);
+    const [mode, setMode] = React.useState<ShortcutRecordMode>('append');
     return (
         <TableRow className="group/row">
             <TableCell className="py-2">
@@ -252,11 +282,25 @@ const ShortcutRow = ({
                 <div className="flex items-center gap-0.5">
                     <Tooltip>
                         <TooltipTrigger asChild>
-                            <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground/95 hover:text-foreground" onClick={() => triggerRef.current?.click()}>
+                            <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground/95 hover:text-foreground" onClick={() => {
+                                setMode('append');
+                                triggerRef.current?.click();
+                            }}>
                                 <SquarePlus className="h-3.5 w-3.5" />
                             </Button>
                         </TooltipTrigger>
-                        <TooltipContent side="top"><p>{recordLabel}</p></TooltipContent>
+                        <TooltipContent side="top"><p>{appendLabel}</p></TooltipContent>
+                    </Tooltip>
+                    <Tooltip>
+                        <TooltipTrigger asChild>
+                            <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground/95 hover:text-foreground" onClick={() => {
+                                setMode('replace');
+                                triggerRef.current?.click();
+                            }}>
+                                <Pencil className="h-3.5 w-3.5" />
+                            </Button>
+                        </TooltipTrigger>
+                        <TooltipContent side="top"><p>{editLabel}</p></TooltipContent>
                     </Tooltip>
                     <Tooltip>
                         <TooltipTrigger asChild>
@@ -270,6 +314,7 @@ const ShortcutRow = ({
                 <RecordDialog
                     title={title}
                     value={value}
+                    mode={mode}
                     onChange={onChange}
                     triggerRef={triggerRef}
                     dialogTitle={dialogTitle}

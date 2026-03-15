@@ -12,6 +12,9 @@ type Props = {
     onChangeAutoPause: () => void;
 };
 
+/**
+ * 视频学习页快捷键注册器：监听设置变化后即时更新绑定。
+ */
 const VideoPlayerShortcut: React.FC<Props> = ({
     onPlayPause,
     onPrevSentence,
@@ -21,7 +24,14 @@ const VideoPlayerShortcut: React.FC<Props> = ({
     onChangeSingleRepeat,
     onChangeAutoPause,
 }) => {
-    const setting = useSetting((s) => s.setting);
+    const shortcuts = useSetting((s) => ({
+        previousSentence: s.values.get('shortcut.previousSentence') ?? '',
+        nextSentence: s.values.get('shortcut.nextSentence') ?? '',
+        repeatSentence: s.values.get('shortcut.repeatSentence') ?? '',
+        playPause: s.values.get('shortcut.playPause') ?? '',
+        repeatSingleSentence: s.values.get('shortcut.repeatSingleSentence') ?? '',
+        autoPause: s.values.get('shortcut.autoPause') ?? '',
+    }));
 
     // 处理快捷键配置，去除空格和无效按键
     const process = (values: string) => values
@@ -59,32 +69,32 @@ const VideoPlayerShortcut: React.FC<Props> = ({
     }, [onPlayPause]);
 
     // 自定义快捷键配置（从设置中读取）
-    useHotkeys(process(setting('shortcut.previousSentence')), (e) => {
+    useHotkeys(process(shortcuts.previousSentence), (e) => {
         e.preventDefault();
         onPrevSentence();
     }, [onPrevSentence]);
 
-    useHotkeys(process(setting('shortcut.nextSentence')), (e) => {
+    useHotkeys(process(shortcuts.nextSentence), (e) => {
         e.preventDefault();
         onNextSentence();
     }, [onNextSentence]);
 
-    useHotkeys(process(setting('shortcut.repeatSentence')), (e) => {
+    useHotkeys(process(shortcuts.repeatSentence), (e) => {
         e.preventDefault();
         onRepeatSentence();
     }, [onRepeatSentence]);
 
-    useHotkeys(process(setting('shortcut.playPause')), (e) => {
+    useHotkeys(process(shortcuts.playPause), (e) => {
         e.preventDefault();
         onPlayPause();
     }, [onPlayPause]);
 
-    useHotkeys(process(setting('shortcut.repeatSingleSentence')), (e) => {
+    useHotkeys(process(shortcuts.repeatSingleSentence), (e) => {
         e.preventDefault();
         onChangeSingleRepeat();
     }, [onChangeSingleRepeat]);
 
-    useHotkeys(process(setting('shortcut.autoPause')), (e) => {
+    useHotkeys(process(shortcuts.autoPause), (e) => {
         e.preventDefault();
         onChangeAutoPause();
     }, [onChangeAutoPause]);

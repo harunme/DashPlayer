@@ -56,6 +56,7 @@
         "title": "快捷键",
         "description": "多个快捷键用 , 分割",
         "record": "录制快捷键",
+        "edit": "编辑快捷键",
         "resetDefault": "重置为默认值",
         "dialogTitle": "录入快捷键",
         "dialogDescription": "点击下面的输入框，然后按下你想要的快捷键。",
