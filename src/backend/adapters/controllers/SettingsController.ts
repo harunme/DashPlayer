@@ -4,13 +4,13 @@ import { inject, injectable } from 'inversify';
 import TYPES from '@/backend/ioc/types';
 import SettingService from '@/backend/application/services/SettingService';
 import { getMainLogger } from '@/backend/infrastructure/logger';
-import { SettingKey } from '@/common/types/store_schema';
 import SettingsKeyValueService from '@/backend/application/services/impl/SettingsKeyValueService';
 import {
     ServiceCredentialSettingDetailVO,
     ServiceCredentialSettingSaveVO,
 } from '@/common/types/vo/service-credentials-setting-vo';
 import { EngineSelectionSettingVO } from '@/common/types/vo/engine-selection-setting-vo';
+import { ShortcutSettingDetailVO, ShortcutSettingSaveVO } from '@/common/types/vo/shortcut-setting-vo';
 
 @injectable()
 export default class SettingsController implements Controller {
@@ -73,13 +73,60 @@ export default class SettingsController implements Controller {
         await this.settingsKeyValueService.set('appearance.fontSize', params.fontSize);
     }
 
-    public async updateShortcutSettings(params: Partial<Record<SettingKey, string>>): Promise<void> {
-        const entries = Object.entries(params) as [SettingKey, string | undefined][];
-        for (const [key, value] of entries) {
-            if (value !== undefined) {
-                await this.settingsKeyValueService.set(key, value);
-            }
-        }
+    /**
+     * 获取快捷键设置详情。
+     */
+    public async getShortcutSettingsDetail(): Promise<ShortcutSettingDetailVO> {
+        return {
+            previousSentence: await this.settingsKeyValueService.get('shortcut.previousSentence'),
+            nextSentence: await this.settingsKeyValueService.get('shortcut.nextSentence'),
+            repeatSentence: await this.settingsKeyValueService.get('shortcut.repeatSentence'),
+            playPause: await this.settingsKeyValueService.get('shortcut.playPause'),
+            repeatSingleSentence: await this.settingsKeyValueService.get('shortcut.repeatSingleSentence'),
+            autoPause: await this.settingsKeyValueService.get('shortcut.autoPause'),
+            toggleEnglishDisplay: await this.settingsKeyValueService.get('shortcut.toggleEnglishDisplay'),
+            toggleChineseDisplay: await this.settingsKeyValueService.get('shortcut.toggleChineseDisplay'),
+            toggleBilingualDisplay: await this.settingsKeyValueService.get('shortcut.toggleBilingualDisplay'),
+            toggleWordLevelDisplay: await this.settingsKeyValueService.get('shortcut.toggleWordLevelDisplay'),
+            nextTheme: await this.settingsKeyValueService.get('shortcut.nextTheme'),
+            adjustBeginMinus: await this.settingsKeyValueService.get('shortcut.adjustBeginMinus'),
+            adjustBeginPlus: await this.settingsKeyValueService.get('shortcut.adjustBeginPlus'),
+            adjustEndMinus: await this.settingsKeyValueService.get('shortcut.adjustEndMinus'),
+            adjustEndPlus: await this.settingsKeyValueService.get('shortcut.adjustEndPlus'),
+            clearAdjust: await this.settingsKeyValueService.get('shortcut.clearAdjust'),
+            nextPlaybackRate: await this.settingsKeyValueService.get('shortcut.nextPlaybackRate'),
+            aiChat: await this.settingsKeyValueService.get('shortcut.aiChat'),
+            toggleCopyMode: await this.settingsKeyValueService.get('shortcut.toggleCopyMode'),
+            addClip: await this.settingsKeyValueService.get('shortcut.addClip'),
+            openControlPanel: await this.settingsKeyValueService.get('shortcut.openControlPanel'),
+        };
+    }
+
+    /**
+     * 更新快捷键设置。
+     */
+    public async updateShortcutSettings(params: ShortcutSettingSaveVO): Promise<void> {
+        await this.settingsKeyValueService.set('shortcut.previousSentence', params.previousSentence);
+        await this.settingsKeyValueService.set('shortcut.nextSentence', params.nextSentence);
+        await this.settingsKeyValueService.set('shortcut.repeatSentence', params.repeatSentence);
+        await this.settingsKeyValueService.set('shortcut.playPause', params.playPause);
+        await this.settingsKeyValueService.set('shortcut.repeatSingleSentence', params.repeatSingleSentence);
+        await this.settingsKeyValueService.set('shortcut.autoPause', params.autoPause);
+        await this.settingsKeyValueService.set('shortcut.toggleEnglishDisplay', params.toggleEnglishDisplay);
+        await this.settingsKeyValueService.set('shortcut.toggleChineseDisplay', params.toggleChineseDisplay);
+        await this.settingsKeyValueService.set('shortcut.toggleBilingualDisplay', params.toggleBilingualDisplay);
+        await this.settingsKeyValueService.set('shortcut.toggleWordLevelDisplay', params.toggleWordLevelDisplay);
+        await this.settingsKeyValueService.set('shortcut.nextTheme', params.nextTheme);
+        await this.settingsKeyValueService.set('shortcut.adjustBeginMinus', params.adjustBeginMinus);
+        await this.settingsKeyValueService.set('shortcut.adjustBeginPlus', params.adjustBeginPlus);
+        await this.settingsKeyValueService.set('shortcut.adjustEndMinus', params.adjustEndMinus);
+        await this.settingsKeyValueService.set('shortcut.adjustEndPlus', params.adjustEndPlus);
+        await this.settingsKeyValueService.set('shortcut.clearAdjust', params.clearAdjust);
+        await this.settingsKeyValueService.set('shortcut.nextPlaybackRate', params.nextPlaybackRate);
+        await this.settingsKeyValueService.set('shortcut.aiChat', params.aiChat);
+        await this.settingsKeyValueService.set('shortcut.toggleCopyMode', params.toggleCopyMode);
+        await this.settingsKeyValueService.set('shortcut.addClip', params.addClip);
+        await this.settingsKeyValueService.set('shortcut.openControlPanel', params.openControlPanel);
     }
 
     /**
@@ -121,6 +168,7 @@ export default class SettingsController implements Controller {
         registerRoute('settings/service-credentials/test-youdao', () => this.testYoudao());
         registerRoute('settings/engine-selection/detail', () => this.getEngineSelectionDetail());
         registerRoute('settings/engine-selection/save', (p) => this.saveEngineSelection(p));
+        registerRoute('settings/shortcuts/detail', () => this.getShortcutSettingsDetail());
         registerRoute('settings/appearance/update', (p) => this.updateAppearanceSettings(p));
         registerRoute('settings/shortcuts/update', (p) => this.updateShortcutSettings(p));
         registerRoute('settings/storage/update', (p) => this.updateStorageSettings(p));

@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { UseFormReturn } from 'react-hook-form';
+import { FieldValues, UseFormReturn } from 'react-hook-form';
 
 /**
  * 自动保存状态。
@@ -9,7 +9,7 @@ export type AutoSaveStatus = 'idle' | 'saving' | 'saved' | 'error';
 /**
  * 自动保存 Hook 的入参。
  */
-export interface UseAutoSaveSettingsFormOptions<TFormValues extends Record<string, unknown>> {
+export interface UseAutoSaveSettingsFormOptions<TFormValues extends FieldValues> {
     /** React Hook Form 实例。 */
     form: UseFormReturn<TFormValues>;
     /** 执行保存请求的方法。 */
@@ -21,7 +21,7 @@ export interface UseAutoSaveSettingsFormOptions<TFormValues extends Record<strin
 /**
  * 自动保存 Hook 的返回值。
  */
-export interface UseAutoSaveSettingsFormResult<TFormValues extends Record<string, unknown>> {
+export interface UseAutoSaveSettingsFormResult<TFormValues extends FieldValues> {
     /** 当前自动保存状态。 */
     status: AutoSaveStatus;
     /** 最近一次错误消息。 */
@@ -37,7 +37,7 @@ export interface UseAutoSaveSettingsFormResult<TFormValues extends Record<string
 /**
  * 将表单值序列化为稳定快照，用于判断是否有未保存变更。
  */
-function snapshotOf<TFormValues extends Record<string, unknown>>(values: TFormValues): string {
+function snapshotOf<TFormValues extends FieldValues>(values: TFormValues): string {
     return JSON.stringify(values);
 }
 
@@ -49,7 +49,7 @@ function snapshotOf<TFormValues extends Record<string, unknown>>(values: TFormVa
  * - 保存串行执行，新的变更会排队到下一轮；
  * - 失败时不覆盖用户输入，保留脏状态并暴露错误。
  */
-export function useAutoSaveSettingsForm<TFormValues extends Record<string, unknown>>(
+export function useAutoSaveSettingsForm<TFormValues extends FieldValues>(
     options: UseAutoSaveSettingsFormOptions<TFormValues>,
 ): UseAutoSaveSettingsFormResult<TFormValues> {
     const { form, onSave, debounceMs = 600 } = options;
