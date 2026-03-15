@@ -1,11 +1,8 @@
 import * as React from 'react';
 import SettingsPageShell from '@/fronted/pages/setting/components/form/SettingsPageShell';
 import { Button } from '@/fronted/components/ui/button';
-import { Label } from '@/fronted/components/ui/label';
-import { Input } from '@/fronted/components/ui/input';
 import { useRecordHotkeys } from 'react-hotkeys-hook';
 import { DialogClose } from '@radix-ui/react-dialog';
-import { cn } from '@/fronted/lib/utils';
 import {
     Dialog,
     DialogContent,
@@ -15,29 +12,354 @@ import {
     DialogTitle,
     DialogTrigger,
 } from '@/fronted/components/ui/dialog';
-import { EllipsisVertical, Eraser, SquarePlus } from 'lucide-react';
-import { SettingKeyObj } from '@/common/types/store_schema';
 import {
-    DropdownMenu,
-    DropdownMenuContent,
-    DropdownMenuItem,
-    DropdownMenuTrigger,
-} from '@/fronted/components/ui/dropdown-menu';
+    Table,
+    TableBody,
+    TableCell,
+    TableHead,
+    TableHeader,
+    TableRow,
+} from '@/fronted/components/ui/table';
+import {
+    Tooltip,
+    TooltipContent,
+    TooltipProvider,
+    TooltipTrigger,
+} from '@/fronted/components/ui/tooltip';
+import { Eraser, SquarePlus } from 'lucide-react';
+import { SettingKeyObj } from '@/common/types/store_schema';
 import { useForm, Controller } from 'react-hook-form';
 import useSetting from '@/fronted/hooks/useSetting';
 import { useShallow } from 'zustand/react/shallow';
 import { backendClient } from '@/fronted/application/bootstrap/backendClient';
 import { useTranslation as useI18nTranslation } from 'react-i18next';
+import { Input } from '@/fronted/components/ui/input';
+import { Label } from '@/fronted/components/ui/label';
 
 const api = backendClient;
 
 const merge = (a: string, b: string) => {
     const aArr = a.split(',');
     const bArr = b.split(',');
-    const res = Array.from(new Set([...aArr, ...bArr])).join(',');
-    return res;
+    return Array.from(new Set([...aArr, ...bArr])).join(',');
 };
 
+const RecordDialog = ({
+    title,
+    value,
+    onChange,
+    triggerRef,
+    dialogTitle,
+    dialogDescription,
+    saveChangesLabel,
+}: {
+    title: string;
+    value: string;
+    onChange: (value: string) => void;
+    triggerRef: React.RefObject<HTMLButtonElement>;
+    dialogTitle: string;
+    dialogDescription: string;
+    saveChangesLabel: string;
+}) => {
+    const [keys, { start, stop }] = useRecordHotkeys();
+    return (
+        <Dialog onOpenChange={(open) => { if (!open) stop(); }}>
+            <DialogTrigger asChild>
+                <Button ref={triggerRef} className="hidden">Open</Button>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-[425px]">
+                <DialogHeader>
+                    <DialogTitle>{dialogTitle}</DialogTitle>
+                    <DialogDescription>{dialogDescription}</DialogDescription>
+                </DialogHeader>
+                <div className="grid gap-4 py-4">
+                    <Label htmlFor="shortcut-input">{title}</Label>
+                    <Input
+                        id="shortcut-input"
+                        readOnly
+                        onFocus={start}
+                        onBlur={stop}
+                        value={Array.from(keys).join(' + ')}
+                        className="col-span-3"
+                    />
+                </div>
+                <DialogFooter>
+                    <DialogClose asChild>
+                        <Button
+                            onClick={() => onChange(merge(value, Array.from(keys).join('+')))}
+                            type="submit"
+                        >
+                            {saveChangesLabel}
+                        </Button>
+                    </DialogClose>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
+    );
+};
+
+const ShortcutSetting = () => {
+    const { t } = useI18nTranslation('settings');
+    const shortcutValues = useSetting(
+        useShallow((state) => {
+            const result = {} as ShortcutFormValues;
+            shortcutKeys.forEach((key) => {
+                result[key] = state.values.get(key) ?? SettingKeyObj[key];
+            });
+            return result;
+        })
+    );
+
+    const form = useForm<ShortcutFormValues>({
+        defaultValues: shortcutValues,
+    });
+
+    const { control, watch, getValues, reset, formState } = form;
+    const { isDirty } = formState;
+
+    const [, setAutoSaveStatus] = React.useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
+    const [, setAutoSaveError] = React.useState<string | null>(null);
+    const debounceRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+    const pendingSaveRef = React.useRef<Promise<void> | null>(null);
+    const autoSaveIdleTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+    const isMountedRef = React.useRef(true);
+
+    React.useEffect(() => {
+        return () => { isMountedRef.current = false; };
+    }, []);
+
+    React.useEffect(() => {
+        if (!isDirty) {
+            reset(shortcutValues, { keepValues: true });
+        }
+    }, [shortcutValues, reset, isDirty]);
+
+    const saveSettings = React.useCallback(async (values: ShortcutFormValues) => {
+        await api.call('settings/shortcuts/update', values);
+    }, []);
+
+    const runSave = React.useCallback(async (values: ShortcutFormValues) => {
+        if (autoSaveIdleTimerRef.current) {
+            clearTimeout(autoSaveIdleTimerRef.current);
+            autoSaveIdleTimerRef.current = null;
+        }
+        if (isMountedRef.current) {
+            setAutoSaveStatus('saving');
+            setAutoSaveError(null);
+        }
+        const promise = (async () => {
+            try {
+                await saveSettings(values);
+                if (isMountedRef.current) {
+                    setAutoSaveStatus('saved');
+                    reset(values, { keepValues: true });
+                    autoSaveIdleTimerRef.current = setTimeout(() => {
+                        if (isMountedRef.current) {
+                            setAutoSaveStatus((prev) => (prev === 'saved' ? 'idle' : prev));
+                        }
+                    }, 2000);
+                }
+            } catch (error) {
+                const message = error instanceof Error ? error.message : String(error);
+                if (isMountedRef.current) {
+                    setAutoSaveStatus('error');
+                    setAutoSaveError(message);
+                }
+                throw error;
+            }
+        })();
+        pendingSaveRef.current = promise;
+        promise.finally(() => {
+            if (pendingSaveRef.current === promise) {
+                pendingSaveRef.current = null;
+            }
+        });
+        return promise;
+    }, [reset, saveSettings]);
+
+    const flushPendingSave = React.useCallback(async () => {
+        if (debounceRef.current) {
+            clearTimeout(debounceRef.current);
+            debounceRef.current = null;
+        }
+        if (pendingSaveRef.current) {
+            await pendingSaveRef.current;
+            return;
+        }
+        if (!isDirty) return;
+        await runSave(getValues());
+        if (pendingSaveRef.current) {
+            await pendingSaveRef.current;
+        }
+    }, [getValues, isDirty, runSave]);
+
+    React.useEffect(() => {
+        return () => {
+            if (debounceRef.current) {
+                clearTimeout(debounceRef.current);
+                debounceRef.current = null;
+            }
+            if (autoSaveIdleTimerRef.current) {
+                clearTimeout(autoSaveIdleTimerRef.current);
+                autoSaveIdleTimerRef.current = null;
+            }
+            flushPendingSave().catch(() => undefined);
+        };
+    }, [flushPendingSave]);
+
+    React.useEffect(() => {
+        const subscription = watch(() => {
+            if (debounceRef.current) clearTimeout(debounceRef.current);
+            if (!formState.isDirty) return;
+            debounceRef.current = setTimeout(() => {
+                runSave(getValues()).catch(() => undefined);
+            }, 600);
+        });
+        return () => subscription.unsubscribe();
+    }, [getValues, runSave, watch, formState.isDirty]);
+
+    const items: Array<{ key: ShortcutKey; title: string; description: string }> = [
+        { key: 'shortcut.previousSentence', title: t('shortcut.items.previousSentence.title'), description: t('shortcut.items.previousSentence.description') },
+        { key: 'shortcut.nextSentence', title: t('shortcut.items.nextSentence.title'), description: t('shortcut.items.nextSentence.description') },
+        { key: 'shortcut.repeatSentence', title: t('shortcut.items.repeatSentence.title'), description: t('shortcut.items.repeatSentence.description') },
+        { key: 'shortcut.playPause', title: t('shortcut.items.playPause.title'), description: t('shortcut.items.playPause.description') },
+        { key: 'shortcut.repeatSingleSentence', title: t('shortcut.items.repeatSingleSentence.title'), description: t('shortcut.items.repeatSingleSentence.description') },
+        { key: 'shortcut.autoPause', title: t('shortcut.items.autoPause.title'), description: t('shortcut.items.autoPause.description') },
+        { key: 'shortcut.toggleEnglishDisplay', title: t('shortcut.items.toggleEnglishDisplay.title'), description: t('shortcut.items.toggleEnglishDisplay.description') },
+        { key: 'shortcut.toggleChineseDisplay', title: t('shortcut.items.toggleChineseDisplay.title'), description: t('shortcut.items.toggleChineseDisplay.description') },
+        { key: 'shortcut.toggleBilingualDisplay', title: t('shortcut.items.toggleBilingualDisplay.title'), description: t('shortcut.items.toggleBilingualDisplay.description') },
+        { key: 'shortcut.toggleWordLevelDisplay', title: t('shortcut.items.toggleWordLevelDisplay.title'), description: t('shortcut.items.toggleWordLevelDisplay.description') },
+        { key: 'shortcut.nextTheme', title: t('shortcut.items.nextTheme.title'), description: t('shortcut.items.nextTheme.description') },
+        { key: 'shortcut.adjustBeginMinus', title: t('shortcut.items.adjustBeginMinus.title'), description: t('shortcut.items.adjustBeginMinus.description') },
+        { key: 'shortcut.adjustBeginPlus', title: t('shortcut.items.adjustBeginPlus.title'), description: t('shortcut.items.adjustBeginPlus.description') },
+        { key: 'shortcut.adjustEndMinus', title: t('shortcut.items.adjustEndMinus.title'), description: t('shortcut.items.adjustEndMinus.description') },
+        { key: 'shortcut.adjustEndPlus', title: t('shortcut.items.adjustEndPlus.title'), description: t('shortcut.items.adjustEndPlus.description') },
+        { key: 'shortcut.clearAdjust', title: t('shortcut.items.clearAdjust.title'), description: t('shortcut.items.clearAdjust.description') },
+        { key: 'shortcut.nextPlaybackRate', title: t('shortcut.items.nextPlaybackRate.title'), description: t('shortcut.items.nextPlaybackRate.description') },
+        { key: 'shortcut.aiChat', title: t('shortcut.items.aiChat.title'), description: t('shortcut.items.aiChat.description') },
+        { key: 'shortcut.toggleCopyMode', title: t('shortcut.items.toggleCopyMode.title'), description: t('shortcut.items.toggleCopyMode.description') },
+        { key: 'shortcut.addClip', title: t('shortcut.items.addClip.title'), description: t('shortcut.items.addClip.description') },
+        { key: 'shortcut.openControlPanel', title: t('shortcut.items.openControlPanel.title'), description: t('shortcut.items.openControlPanel.description') },
+    ];
+
+    return (
+        <form className="w-full h-full min-h-0">
+            <SettingsPageShell
+                title={t('shortcut.title')}
+                description={t('shortcut.description')}
+            >
+                <TooltipProvider delayDuration={300}>
+                    <Table>
+                        <TableHeader>
+                            <TableRow>
+                                <TableHead className="w-[40%]">{t('shortcut.tableHeader.action')}</TableHead>
+                                <TableHead>{t('shortcut.tableHeader.keys')}</TableHead>
+                                <TableHead className="w-20" />
+                            </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                            {items.map((item) => (
+                                <Controller
+                                    key={item.key}
+                                    name={item.key}
+                                    control={control}
+                                    render={({ field }) => (
+                                        <ShortcutRow
+                                            title={item.title}
+                                            description={item.description}
+                                            value={field.value ?? ''}
+                                            defaultValue={SettingKeyObj[item.key]}
+                                            onChange={field.onChange}
+                                            recordLabel={t('shortcut.record')}
+                                            resetDefaultLabel={t('shortcut.resetDefault')}
+                                            dialogTitle={t('shortcut.dialogTitle')}
+                                            dialogDescription={t('shortcut.dialogDescription')}
+                                            saveChangesLabel={t('shortcut.saveChanges')}
+                                        />
+                                    )}
+                                />
+                            ))}
+                        </TableBody>
+                    </Table>
+                </TooltipProvider>
+            </SettingsPageShell>
+        </form>
+    );
+};
+
+const ShortcutRow = ({
+    title,
+    description,
+    value,
+    defaultValue,
+    onChange,
+    recordLabel,
+    resetDefaultLabel,
+    dialogTitle,
+    dialogDescription,
+    saveChangesLabel,
+}: {
+    title: string;
+    description: string;
+    value: string;
+    defaultValue: string;
+    onChange: (value: string) => void;
+    recordLabel: string;
+    resetDefaultLabel: string;
+    dialogTitle: string;
+    dialogDescription: string;
+    saveChangesLabel: string;
+}) => {
+    const triggerRef = React.useRef<HTMLButtonElement>(null!);
+    return (
+        <TableRow className="group/row">
+            <TableCell className="py-2">
+                <Tooltip>
+                    <TooltipTrigger asChild>
+                        <span className="text-sm cursor-default">{title}</span>
+                    </TooltipTrigger>
+                    <TooltipContent side="top">
+                        <p>{description}</p>
+                    </TooltipContent>
+                </Tooltip>
+            </TableCell>
+            <TableCell className="py-2">
+                <KeyBadge keys={value} />
+            </TableCell>
+            <TableCell className="py-2">
+                <div className="flex items-center gap-0.5">
+                    <Tooltip>
+                        <TooltipTrigger asChild>
+                            <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground/95 hover:text-foreground" onClick={() => triggerRef.current?.click()}>
+                                <SquarePlus className="h-3.5 w-3.5" />
+                            </Button>
+                        </TooltipTrigger>
+                        <TooltipContent side="top"><p>{recordLabel}</p></TooltipContent>
+                    </Tooltip>
+                    <Tooltip>
+                        <TooltipTrigger asChild>
+                            <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground/95 hover:text-foreground" onClick={() => onChange(defaultValue)}>
+                                <Eraser className="h-3.5 w-3.5" />
+                            </Button>
+                        </TooltipTrigger>
+                        <TooltipContent side="top"><p>{resetDefaultLabel}</p></TooltipContent>
+                    </Tooltip>
+                </div>
+                <RecordDialog
+                    title={title}
+                    value={value}
+                    onChange={onChange}
+                    triggerRef={triggerRef}
+                    dialogTitle={dialogTitle}
+                    dialogDescription={dialogDescription}
+                    saveChangesLabel={saveChangesLabel}
+                />
+            </TableCell>
+        </TableRow>
+    );
+};
+
+export default ShortcutSetting;
 type ShortcutKey =
     | 'shortcut.previousSentence'
     | 'shortcut.nextSentence'
@@ -87,322 +409,18 @@ const shortcutKeys: ShortcutKey[] = [
 
 type ShortcutFormValues = Record<ShortcutKey, string>;
 
-type ShortCutRecorderProps = {
-    title: string;
-    description?: string;
-    placeHolder?: string;
-    value: string;
-    onChange: (value: string) => void;
-    onBlur?: () => void;
-    type?: string;
-    inputWidth?: string;
-    defaultValue?: string;
-    recordLabel: string;
-    resetDefaultLabel: string;
-    dialogTitle: string;
-    dialogDescription: string;
-    saveChangesLabel: string;
-};
-
-const ShortCutRecorder: React.FC<ShortCutRecorderProps> = ({
-    title,
-    description,
-    placeHolder,
-    value,
-    onChange,
-    onBlur,
-    type,
-    inputWidth,
-    defaultValue,
-    recordLabel,
-    resetDefaultLabel,
-    dialogTitle,
-    dialogDescription,
-    saveChangesLabel,
-}) => {
-    const [keys, { start, stop }] = useRecordHotkeys();
-    const trigger = React.useRef<HTMLButtonElement>(null);
-
+const KeyBadge = ({ keys }: { keys: string }) => {
+    if (!keys) return <span className="text-muted-foreground text-xs">—</span>;
     return (
-        <div className={cn('grid w-full items-center gap-1.5 pl-2')}>
-            <Label>{title}</Label>
-            <div className="flex justify-start">
-                <Input
-                    className={cn('mr-2', inputWidth)}
-                    type={type}
-                    value={value}
-                    onBlur={onBlur}
-                    onChange={(event) => onChange(event.target.value)}
-                    placeholder={placeHolder}
-                />
-                <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                        <Button variant="outline" size="icon">
-                            <EllipsisVertical />
-                        </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent>
-                        <DropdownMenuItem
-                            onClick={() => {
-                                trigger.current?.click();
-                            }}
-                        >
-                            <SquarePlus className="h-4 w-4 mr-2" />
-                            {recordLabel}
-                        </DropdownMenuItem>
-                        <DropdownMenuItem
-                            onClick={() => onChange(defaultValue ?? '')}
-                        >
-                            <Eraser className="h-4 w-4 mr-2" />
-                            {resetDefaultLabel}
-                        </DropdownMenuItem>
-                    </DropdownMenuContent>
-                </DropdownMenu>
-                <Dialog
-                    onOpenChange={(open) => {
-                        if (!open) {
-                            stop();
-                        }
-                    }}
+        <div className="flex flex-wrap gap-1">
+            {keys.split(',').filter(Boolean).map((key) => (
+                <kbd
+                    key={key}
+                    className="inline-flex items-center rounded border border-border bg-muted px-1.5 py-0.5 text-xs font-mono text-muted-foreground"
                 >
-                    <DialogTrigger asChild>
-                        <Button ref={trigger} className="hidden">
-                            Open
-                        </Button>
-                    </DialogTrigger>
-                    <DialogContent className="sm:max-w-[425px]">
-                        <DialogHeader>
-                            <DialogTitle>{dialogTitle}</DialogTitle>
-                            <DialogDescription>
-                                {dialogDescription}
-                            </DialogDescription>
-                        </DialogHeader>
-                        <div className="grid gap-4 py-4">
-                            <Label htmlFor="shortcut-input" className="">
-                                {title}
-                            </Label>
-                            <Input
-                                id="shortcut-input"
-                                readOnly
-                                onFocus={start}
-                                onBlur={stop}
-                                value={Array.from(keys).join(' + ')}
-                                className="col-span-3"
-                            />
-                        </div>
-                        <DialogFooter>
-                            <DialogClose asChild>
-                                <Button
-                                    onClick={() => {
-                                        onChange(merge(value, Array.from(keys).join('+')));
-                                    }}
-                                    type="submit"
-                                >
-                                    {saveChangesLabel}
-                                </Button>
-                            </DialogClose>
-                        </DialogFooter>
-                    </DialogContent>
-                </Dialog>
-            </div>
-            <p className={cn('text-sm text-muted-foreground')}>{description}</p>
+                    {key.split('+').map((k) => k.charAt(0).toUpperCase() + k.slice(1)).join(' + ')}
+                </kbd>
+            ))}
         </div>
     );
 };
-
-ShortCutRecorder.defaultProps = {
-    placeHolder: '',
-    type: 'text',
-    inputWidth: 'w-96',
-    description: '',
-    defaultValue: '',
-};
-
-const ShortcutSetting = () => {
-    const { t } = useI18nTranslation('settings');
-    const shortcutValues = useSetting(
-        useShallow((state) => {
-            const result = {} as ShortcutFormValues;
-            shortcutKeys.forEach((key) => {
-                result[key] = state.values.get(key) ?? SettingKeyObj[key];
-            });
-            return result;
-        })
-    );
-
-    const form = useForm<ShortcutFormValues>({
-        defaultValues: shortcutValues,
-    });
-
-    const { control, watch, getValues, reset, formState } = form;
-    const { isDirty } = formState;
-
-    const [, setAutoSaveStatus] = React.useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
-    const [, setAutoSaveError] = React.useState<string | null>(null);
-    const debounceRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
-    const pendingSaveRef = React.useRef<Promise<void> | null>(null);
-    const autoSaveIdleTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
-    const isMountedRef = React.useRef(true);
-
-    React.useEffect(() => {
-        return () => {
-            isMountedRef.current = false;
-        };
-    }, []);
-
-    React.useEffect(() => {
-        if (!isDirty) {
-            reset(shortcutValues, { keepValues: true });
-        }
-    }, [shortcutValues, reset, isDirty]);
-
-    const saveSettings = React.useCallback(async (values: ShortcutFormValues) => {
-        await api.call('settings/shortcuts/update', values);
-    }, []);
-
-    const runSave = React.useCallback(async (values: ShortcutFormValues) => {
-        if (autoSaveIdleTimerRef.current) {
-            clearTimeout(autoSaveIdleTimerRef.current);
-            autoSaveIdleTimerRef.current = null;
-        }
-        if (isMountedRef.current) {
-            setAutoSaveStatus('saving');
-            setAutoSaveError(null);
-        }
-        const promise = (async () => {
-            try {
-                await saveSettings(values);
-                if (isMountedRef.current) {
-                    setAutoSaveStatus('saved');
-                    reset(values, { keepValues: true });
-                    autoSaveIdleTimerRef.current = setTimeout(() => {
-                        if (isMountedRef.current) {
-                            setAutoSaveStatus((prev) => (prev === 'saved' ? 'idle' : prev));
-                        }
-                    }, 2000);
-                }
-            } catch (error) {
-                const message = error instanceof Error ? error.message : String(error);
-                if (isMountedRef.current) {
-                    setAutoSaveStatus('error');
-                    setAutoSaveError(message);
-                }
-                throw error;
-            }
-        })();
-
-        pendingSaveRef.current = promise;
-        promise.finally(() => {
-            if (pendingSaveRef.current === promise) {
-                pendingSaveRef.current = null;
-            }
-        });
-        return promise;
-    }, [reset, saveSettings]);
-
-    const flushPendingSave = React.useCallback(async () => {
-        if (debounceRef.current) {
-            clearTimeout(debounceRef.current);
-            debounceRef.current = null;
-        }
-        if (pendingSaveRef.current) {
-            await pendingSaveRef.current;
-            return;
-        }
-        if (!isDirty) {
-            return;
-        }
-        await runSave(getValues());
-        if (pendingSaveRef.current) {
-            await pendingSaveRef.current;
-        }
-    }, [getValues, isDirty, runSave]);
-
-    React.useEffect(() => {
-        return () => {
-            if (debounceRef.current) {
-                clearTimeout(debounceRef.current);
-                debounceRef.current = null;
-            }
-            if (autoSaveIdleTimerRef.current) {
-                clearTimeout(autoSaveIdleTimerRef.current);
-                autoSaveIdleTimerRef.current = null;
-            }
-            flushPendingSave().catch(() => undefined);
-        };
-    }, [flushPendingSave]);
-
-    React.useEffect(() => {
-        const subscription = watch(() => {
-            if (debounceRef.current) {
-                clearTimeout(debounceRef.current);
-            }
-            if (!formState.isDirty) {
-                return;
-            }
-            debounceRef.current = setTimeout(() => {
-                runSave(getValues()).catch(() => undefined);
-            }, 600);
-        });
-        return () => subscription.unsubscribe();
-    }, [getValues, runSave, watch, formState.isDirty]);
-
-    const items: Array<{ key: ShortcutKey; title: string; description: string }> = [
-        { key: 'shortcut.previousSentence', title: t('shortcut.items.previousSentence.title'), description: t('shortcut.items.previousSentence.description') },
-        { key: 'shortcut.nextSentence', title: t('shortcut.items.nextSentence.title'), description: t('shortcut.items.nextSentence.description') },
-        { key: 'shortcut.repeatSentence', title: t('shortcut.items.repeatSentence.title'), description: t('shortcut.items.repeatSentence.description') },
-        { key: 'shortcut.playPause', title: t('shortcut.items.playPause.title'), description: t('shortcut.items.playPause.description') },
-        { key: 'shortcut.repeatSingleSentence', title: t('shortcut.items.repeatSingleSentence.title'), description: t('shortcut.items.repeatSingleSentence.description') },
-        { key: 'shortcut.autoPause', title: t('shortcut.items.autoPause.title'), description: t('shortcut.items.autoPause.description') },
-        { key: 'shortcut.toggleEnglishDisplay', title: t('shortcut.items.toggleEnglishDisplay.title'), description: t('shortcut.items.toggleEnglishDisplay.description') },
-        { key: 'shortcut.toggleChineseDisplay', title: t('shortcut.items.toggleChineseDisplay.title'), description: t('shortcut.items.toggleChineseDisplay.description') },
-        { key: 'shortcut.toggleBilingualDisplay', title: t('shortcut.items.toggleBilingualDisplay.title'), description: t('shortcut.items.toggleBilingualDisplay.description') },
-        { key: 'shortcut.toggleWordLevelDisplay', title: t('shortcut.items.toggleWordLevelDisplay.title'), description: t('shortcut.items.toggleWordLevelDisplay.description') },
-        { key: 'shortcut.nextTheme', title: t('shortcut.items.nextTheme.title'), description: t('shortcut.items.nextTheme.description') },
-        { key: 'shortcut.adjustBeginMinus', title: t('shortcut.items.adjustBeginMinus.title'), description: t('shortcut.items.adjustBeginMinus.description') },
-        { key: 'shortcut.adjustBeginPlus', title: t('shortcut.items.adjustBeginPlus.title'), description: t('shortcut.items.adjustBeginPlus.description') },
-        { key: 'shortcut.adjustEndMinus', title: t('shortcut.items.adjustEndMinus.title'), description: t('shortcut.items.adjustEndMinus.description') },
-        { key: 'shortcut.adjustEndPlus', title: t('shortcut.items.adjustEndPlus.title'), description: t('shortcut.items.adjustEndPlus.description') },
-        { key: 'shortcut.clearAdjust', title: t('shortcut.items.clearAdjust.title'), description: t('shortcut.items.clearAdjust.description') },
-        { key: 'shortcut.nextPlaybackRate', title: t('shortcut.items.nextPlaybackRate.title'), description: t('shortcut.items.nextPlaybackRate.description') },
-        { key: 'shortcut.aiChat', title: t('shortcut.items.aiChat.title'), description: t('shortcut.items.aiChat.description') },
-        { key: 'shortcut.toggleCopyMode', title: t('shortcut.items.toggleCopyMode.title'), description: t('shortcut.items.toggleCopyMode.description') },
-        { key: 'shortcut.addClip', title: t('shortcut.items.addClip.title'), description: t('shortcut.items.addClip.description') },
-        { key: 'shortcut.openControlPanel', title: t('shortcut.items.openControlPanel.title'), description: t('shortcut.items.openControlPanel.description') },
-    ];
-
-    return (
-        <form className="w-full h-full min-h-0">
-            <SettingsPageShell
-                title={t('shortcut.title')}
-                description={t('shortcut.description')}
-                contentClassName="space-y-8"
-            >
-                {items.map((item) => (
-                    <Controller
-                        key={item.key}
-                        name={item.key}
-                        control={control}
-                        render={({ field }) => (
-                            <ShortCutRecorder
-                                title={item.title}
-                                description={item.description}
-                                defaultValue={SettingKeyObj[item.key]}
-                                value={field.value ?? ''}
-                                onChange={(value) => field.onChange(value)}
-                                onBlur={field.onBlur}
-                                recordLabel={t('shortcut.record')}
-                                resetDefaultLabel={t('shortcut.resetDefault')}
-                                dialogTitle={t('shortcut.dialogTitle')}
-                                dialogDescription={t('shortcut.dialogDescription')}
-                                saveChangesLabel={t('shortcut.saveChanges')}
-                            />
-                        )}
-                    />
-                ))}
-            </SettingsPageShell>
-        </form>
-    );
-};
-
-export default ShortcutSetting;

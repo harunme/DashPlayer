@@ -60,6 +60,10 @@
         "dialogTitle": "Capture shortcut",
         "dialogDescription": "Focus the input below, then press the shortcut you want to add.",
         "saveChanges": "Save changes",
+        "tableHeader": {
+            "action": "Action",
+            "keys": "Shortcut"
+        },
         "items": {
             "previousSentence": { "title": "Previous subtitle", "description": "Jump to the previous subtitle line." },
             "nextSentence": { "title": "Next subtitle", "description": "Jump to the next subtitle line." },

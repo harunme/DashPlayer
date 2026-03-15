@@ -60,6 +60,10 @@
         "dialogTitle": "录入快捷键",
         "dialogDescription": "点击下面的输入框，然后按下你想要的快捷键。",
         "saveChanges": "保存修改",
+        "tableHeader": {
+            "action": "功能",
+            "keys": "快捷键"
+        },
         "items": {
             "previousSentence": { "title": "上一句", "description": "跳转到上一句" },
             "nextSentence": { "title": "下一句", "description": "跳转到下一句" },
