@@ -89,7 +89,6 @@
             "clearAdjust": { "title": "Reset subtitle timing offset", "description": "Restore subtitle timing to default." },
             "nextPlaybackRate": { "title": "Cycle playback speed", "description": "Switch among your preset playback speeds." },
             "aiChat": { "title": "Open AI chat", "description": "Open the AI chat panel." },
-            "toggleCopyMode": { "title": "Toggle copy mode", "description": "Switch subtitle copy mode." },
             "addClip": { "title": "Add favorite clip", "description": "Save the current subtitle segment to favorites." },
             "openControlPanel": { "title": "Open control panel", "description": "Open the player control panel." }
         }

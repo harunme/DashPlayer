@@ -267,7 +267,6 @@ const ShortcutSetting = () => {
         { key: 'clearAdjust', title: t('shortcut.items.clearAdjust.title'), description: t('shortcut.items.clearAdjust.description') },
         { key: 'nextPlaybackRate', title: t('shortcut.items.nextPlaybackRate.title'), description: t('shortcut.items.nextPlaybackRate.description') },
         { key: 'aiChat', title: t('shortcut.items.aiChat.title'), description: t('shortcut.items.aiChat.description') },
-        { key: 'toggleCopyMode', title: t('shortcut.items.toggleCopyMode.title'), description: t('shortcut.items.toggleCopyMode.description') },
         { key: 'addClip', title: t('shortcut.items.addClip.title'), description: t('shortcut.items.addClip.description') },
         { key: 'openControlPanel', title: t('shortcut.items.openControlPanel.title'), description: t('shortcut.items.openControlPanel.description') },
     ];

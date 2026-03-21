@@ -96,7 +96,6 @@ export default class SettingsController implements Controller {
             clearAdjust: await this.settingsKeyValueService.get('shortcut.clearAdjust'),
             nextPlaybackRate: await this.settingsKeyValueService.get('shortcut.nextPlaybackRate'),
             aiChat: await this.settingsKeyValueService.get('shortcut.aiChat'),
-            toggleCopyMode: await this.settingsKeyValueService.get('shortcut.toggleCopyMode'),
             addClip: await this.settingsKeyValueService.get('shortcut.addClip'),
             openControlPanel: await this.settingsKeyValueService.get('shortcut.openControlPanel'),
         };
@@ -124,7 +123,6 @@ export default class SettingsController implements Controller {
         await this.settingsKeyValueService.set('shortcut.clearAdjust', params.clearAdjust);
         await this.settingsKeyValueService.set('shortcut.nextPlaybackRate', params.nextPlaybackRate);
         await this.settingsKeyValueService.set('shortcut.aiChat', params.aiChat);
-        await this.settingsKeyValueService.set('shortcut.toggleCopyMode', params.toggleCopyMode);
         await this.settingsKeyValueService.set('shortcut.addClip', params.addClip);
         await this.settingsKeyValueService.set('shortcut.openControlPanel', params.openControlPanel);
     }

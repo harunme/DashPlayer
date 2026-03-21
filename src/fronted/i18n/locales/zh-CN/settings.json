@@ -89,7 +89,6 @@
             "clearAdjust": { "title": "清除字幕偏移", "description": "恢复字幕时间到默认值" },
             "nextPlaybackRate": { "title": "切换播放速度", "description": "在常用播放速度之间循环切换" },
             "aiChat": { "title": "打开 AI 对话", "description": "唤起 AI 对话窗口" },
-            "toggleCopyMode": { "title": "切换复制模式", "description": "切换字幕复制模式" },
             "addClip": { "title": "添加收藏片段", "description": "将当前字幕加入收藏夹" },
             "openControlPanel": { "title": "打开控制面板", "description": "打开播放器控制面板" }
         }
