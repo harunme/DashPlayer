@@ -14,6 +14,7 @@ export interface TranslationState {
     // 翻译引擎
     engine: 'tencent' | 'openai' | 'none';
     openAiMode: TranslationMode;
+    activeFileHash: string | null;
 
     // 翻译缓存 - key为translationKey，value为翻译结果
     translations: Map<string, string>;
@@ -47,6 +48,9 @@ export interface TranslationActions {
 
     // 更新 OpenAI 字幕模式
     setOpenAiMode: (mode: TranslationMode) => void;
+
+    // 设置当前激活的字幕文件哈希
+    setActiveFileHash: (fileHash: string | null) => void;
 }
 
 // 创建翻译Store
@@ -55,6 +59,7 @@ const useTranslation = create(
         // 初始状态
         engine: 'none',
         openAiMode: 'zh',
+        activeFileHash: null,
         translations: new Map(),
         translationStatus: new Map(),
 
@@ -75,7 +80,8 @@ const useTranslation = create(
             // 计算要翻译的范围 (当前index ± 10)
             const startIndex = Math.max(0, currentIndex - 10);
             const endIndex = Math.min(sentences.length - 1, currentIndex + 10);
-            const untranslatedIndices = [];
+            const untranslatedIndices: number[] = [];
+            const requestedKeys: string[] = [];
 
             for (let i = startIndex; i <= endIndex; i++) {
                 const sentence = sentences[i];
@@ -88,6 +94,7 @@ const useTranslation = create(
                 // 只加入未翻译或翻译失败的
                 if (status === 'untranslated' || (!hasTranslation && status !== 'translating')) {
                     untranslatedIndices.push(i);
+                    requestedKeys.push(translationKey);
                 }
             }
 
@@ -95,12 +102,35 @@ const useTranslation = create(
                 return;
             }
 
+            set(currentState => {
+                const newStatus = new Map(currentState.translationStatus);
+                requestedKeys.forEach((key) => {
+                    newStatus.set(key, 'translating');
+                });
+                return {
+                    ...currentState,
+                    translationStatus: newStatus
+                };
+            });
+
             // 只发送未翻译的索引
             backendClient.call('ai-trans/request-group-translation', {
                 fileHash,
                 indices: untranslatedIndices,
                 useCache: true
             }).catch(error => {
+                set(currentState => {
+                    const newStatus = new Map(currentState.translationStatus);
+                    requestedKeys.forEach((key) => {
+                        if (newStatus.get(key) === 'translating') {
+                            newStatus.set(key, 'untranslated');
+                        }
+                    });
+                    return {
+                        ...currentState,
+                        translationStatus: newStatus
+                    };
+                });
                 getRendererLogger('useTranslation').error('group translation request failed', { error });
                 const message = error instanceof Error ? error.message : String(error);
                 const dedupeKey = `subtitle-translation-request:${state.engine}:${hash(message)}`;
@@ -120,12 +150,36 @@ const useTranslation = create(
 
         // 强制重新翻译
         retranslate: (fileHash: string, indices: number[], useCache = false) => {
+            set(state => {
+                const newStatus = new Map(state.translationStatus);
+                indices.forEach((index) => {
+                    const key = `${fileHash}:${index}`;
+                    newStatus.set(key, 'translating');
+                });
+                return {
+                    ...state,
+                    translationStatus: newStatus
+                };
+            });
             // 发送索引数组，不使用缓存
             backendClient.call('ai-trans/request-group-translation', {
                 fileHash,
                 indices,
                 useCache
             }).catch(error => {
+                set(state => {
+                    const newStatus = new Map(state.translationStatus);
+                    indices.forEach((index) => {
+                        const key = `${fileHash}:${index}`;
+                        if (newStatus.get(key) === 'translating') {
+                            newStatus.set(key, 'untranslated');
+                        }
+                    });
+                    return {
+                        ...state,
+                        translationStatus: newStatus
+                    };
+                });
                 getRendererLogger('useTranslation').error('retranslate request failed', { error });
                 const message = error instanceof Error ? error.message : String(error);
                 const dedupeKey = `subtitle-translation-request:${get().engine}:${hash(message)}`;
@@ -193,6 +247,7 @@ const useTranslation = create(
         // 清除翻译缓存
         clearTranslations: () => {
             set({
+                activeFileHash: null,
                 translations: new Map(),
                 translationStatus: new Map()
             });
@@ -207,6 +262,7 @@ const useTranslation = create(
                 return {
                     engine,
                     openAiMode: state.openAiMode,
+                    activeFileHash: state.activeFileHash,
                     translations: new Map(),
                     translationStatus: new Map()
                 };
@@ -223,11 +279,26 @@ const useTranslation = create(
                 return {
                     engine: state.engine,
                     openAiMode: mode,
+                    activeFileHash: state.activeFileHash,
                     translations: shouldReset ? new Map() : state.translations,
                     translationStatus: shouldReset ? new Map() : state.translationStatus
                 };
             });
-        }
+        },
+
+        setActiveFileHash: (fileHash: string | null) => {
+            set(state => {
+                if (state.activeFileHash === fileHash) {
+                    return state;
+                }
+                return {
+                    ...state,
+                    activeFileHash: fileHash,
+                    translations: new Map(),
+                    translationStatus: new Map()
+                };
+            });
+        },
     }))
 );
 
@@ -236,6 +307,10 @@ const shouldAcceptTranslation = (
     item: RendererTranslationItem
 ): boolean => {
     if (item.provider !== state.engine) {
+        return false;
+    }
+
+    if (state.activeFileHash !== item.fileHash) {
         return false;
     }
 

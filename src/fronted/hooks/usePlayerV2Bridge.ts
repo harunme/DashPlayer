@@ -7,6 +7,7 @@ import UrlUtil from '@/common/utils/UrlUtil';
 import { getRendererLogger } from '@/fronted/log/simple-logger';
 import { computeResumeTime } from '@/fronted/lib/playerResume';
 import { backendClient } from '@/fronted/application/bootstrap/backendClient';
+import useTranslation from '@/fronted/hooks/useTranslation';
 
 const api = backendClient;
 const logger = getRendererLogger('usePlayerV2Bridge');
@@ -46,11 +47,13 @@ export function usePlayerV2Bridge(navigate: (path: string) => void) {
         const loadSubtitles = async () => {
             if (StrUtil.isBlank(subtitlePath)) {
                 useFile.setState({ srtHash: null });
+                useTranslation.getState().setActiveFileHash(null);
                 playerV2Actions.clearSubtitles();
                 return;
             }
             const currentPath = subtitlePath!;
             useFile.setState({ srtHash: null });
+            useTranslation.getState().setActiveFileHash(null);
             try {
                 const result = await api.call('subtitle/srt/parse-to-sentences', currentPath);
                 if (cancelled || currentPath !== useFile.getState().subtitlePath) {
@@ -58,11 +61,13 @@ export function usePlayerV2Bridge(navigate: (path: string) => void) {
                 }
                 if (!result) {
                     useFile.setState({ subtitlePath: null });
+                    useTranslation.getState().setActiveFileHash(null);
                     playerV2Actions.clearSubtitles();
                     return;
                 }
                 playerV2Actions.loadSubtitles(result.sentences);
                 useFile.setState({ srtHash: result.fileHash });
+                useTranslation.getState().setActiveFileHash(result.fileHash);
             } catch (error) {
                 logger.error('failed to load subtitles', { error: error instanceof Error ? error.message : String(error) });
             }

@@ -21,7 +21,7 @@ export function convertClipSrtLinesToSentences(
     textZH: line.contentZh,
     key: `${clipKey}-${line.index}`,
     transGroup: 1, // 默认分组
-    translationKey: `${clipKey}-${line.index}`, // 简单的翻译键
+    translationKey: `${clipKey}:${line.index}`, // 使用稳定句子键
     struct: {} as any // 空结构体
   }));
 }

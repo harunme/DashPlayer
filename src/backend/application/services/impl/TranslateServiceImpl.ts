@@ -2,7 +2,7 @@
 
 import { inject, injectable } from 'inversify';
 import { z } from 'zod';
-import { Output, streamText } from 'ai';
+import { generateText, Output, streamText } from 'ai';
 
 import TYPES from '@/backend/ioc/types';
 import { SentenceTranslate } from '@/backend/infrastructure/db/tables/sentenceTranslates';
@@ -26,6 +26,7 @@ import TranslateService from '@/backend/application/services/AiTransServiceImpl'
 import { Sentence } from '@/common/types/SentenceC';
 import CacheService from '@/backend/application/services/CacheService';
 import {
+    buildSubtitleBatchPrompt,
     fillSubtitlePrompt,
     getSubtitlePromptTemplate,
     OPENAI_SUBTITLE_PLAIN_PROMPT,
@@ -78,6 +79,15 @@ type SubtitlePromptConfig = {
     template: string;
     style: string;
     styleSignature: string;
+};
+
+type OpenAISubtitleBatchItem = {
+    key: string;
+    translation: string;
+};
+
+type OpenAISubtitleBatchResult = {
+    items: OpenAISubtitleBatchItem[];
 };
 
 const mapOpenAiModeToStorage = (mode: TranslationMode, signature: string): SubtitleTranslationStorageMode => {
@@ -223,7 +233,10 @@ type OpenAIDictionaryResultLike = z.infer<typeof openAIDictionaryCacheSchema> | 
  */
 const sanitizeDictionaryResult = (value: OpenAIDictionaryResultLike): OpenAIDictionaryResult => ({
     word: sanitizeString(value.word) ?? '',
-    phonetic: sanitizePhonetic(value.phonetic) ?? sanitizePhonetic(value.ukPhonetic) ?? sanitizePhonetic(value.usPhonetic) ?? '',
+    phonetic: sanitizePhonetic(value.phonetic)
+        ?? sanitizePhonetic('ukPhonetic' in value ? value.ukPhonetic : undefined)
+        ?? sanitizePhonetic('usPhonetic' in value ? value.usPhonetic : undefined)
+        ?? '',
     definitions: sanitizeDefinitions(value.definitions),
 });
 
@@ -322,6 +335,7 @@ export default class TranslateServiceImpl implements TranslateService {
             if (cachedResults.size > 0) {
                 const cachedTranslations: RendererTranslationItem[] = Array.from(cachedResults.entries()).map(([key, translation]) => ({
                     key,
+                    fileHash,
                     translation,
                     provider: rendererMeta.provider,
                     mode: rendererMeta.mode,
@@ -341,6 +355,7 @@ export default class TranslateServiceImpl implements TranslateService {
         if (skippedSentences.length > 0) {
             const fallbackTranslations: RendererTranslationItem[] = skippedSentences.map(sentence => ({
                 key: sentence.translationKey,
+                fileHash: sentence.fileHash,
                 translation: sentence.text,
                 provider: rendererMeta.provider,
                 mode: rendererMeta.mode,
@@ -411,6 +426,7 @@ export default class TranslateServiceImpl implements TranslateService {
                     resultsToSave.set(task.translationKey, translation);
                     resultsToRender.push({
                         key: task.translationKey,
+                        fileHash: task.fileHash,
                         translation,
                         provider: rendererMeta.provider,
                         mode: rendererMeta.mode,
@@ -441,6 +457,16 @@ export default class TranslateServiceImpl implements TranslateService {
         }
     }
 
+    /**
+     * 使用 OpenAI 进行小窗口结构化字幕翻译。
+     * 说明：窗口只用于提升上下文理解，最终结果仍按句保存与回推。
+     *
+     * @param tasks 当前需要翻译的目标句集合。
+     * @param allSentences 当前字幕文件的全部句子。
+     * @param storageMode 当前缓存模式。
+     * @param openAiMode OpenAI 字幕模式。
+     * @param promptConfig Prompt 模板与风格配置。
+     */
     private async processOpenAIBatch(
         tasks: Sentence[],
         allSentences: Sentence[],
@@ -468,104 +494,75 @@ export default class TranslateServiceImpl implements TranslateService {
             return;
         }
 
-        const schema = this.buildOpenAISchema(openAiMode);
-
+        const schema = this.buildOpenAIBatchSchema(openAiMode);
+        const requestedKeys = new Set(tasks.map((task) => task.translationKey));
+        const windows = this.buildOpenAIWindows(tasks, allSentences);
         let failedCount = 0;
         let firstError: unknown = null;
-        const streamLogger = this.logger;
-        const translationPromises = tasks.map(async (task) => {
-            try {
-                const currentIndex = task.index;
-                const prevSentence = allSentences[currentIndex - 1]?.text || '';
-                const nextSentence = allSentences[currentIndex + 1]?.text || '';
-                const prompt = this.buildOpenAIPrompt(task.text, prevSentence, nextSentence, promptConfig);
+        const resultsToSave = new Map<string, string>();
+        const resultsToRender: RendererTranslationItem[] = [];
 
-                const { partialOutputStream } = streamText({
+        for (const windowSentences of windows) {
+            try {
+                const prompt = buildSubtitleBatchPrompt(
+                    windowSentences.map((sentence) => ({
+                        key: sentence.translationKey,
+                        text: sentence.text
+                    })),
+                    promptConfig.style
+                );
+                const result = await generateText({
                     model,
                     output: Output.object({ schema }),
                     prompt,
                 });
-
-                let finalTranslation = '';
-                for await (const partialObject of partialOutputStream) {
-                    streamLogger.debug('subtitle json chunk', {
-                        key: task.translationKey,
-                        keys: Object.keys(partialObject ?? {}),
-                    });
-                    const sanitized = sanitizeString(partialObject.translation);
-                    if (sanitized) {
-                        finalTranslation = sanitized;
-                        this.rendererGateway.fireAndForget('translation/batch-result', {
-                            translations: [{
-                                key: task.translationKey,
-                                translation: finalTranslation,
-                                provider: 'openai',
-                                mode: openAiMode,
-                                isComplete: false
-                            }]
-                        });
-                    }
-                }
-
-                if (!finalTranslation) {
-                    const plainPrompt = this.buildOpenAIPlainPrompt(task.text, prevSentence, nextSentence, promptConfig);
-                    const textStream = streamText({ model, prompt: plainPrompt });
-                    let collected = '';
-                    for await (const chunk of textStream.textStream) {
-                        collected += chunk;
-                        const sanitized = sanitizeString(collected);
-                        if (sanitized) {
-                            finalTranslation = sanitized;
-                            this.rendererGateway.fireAndForget('translation/batch-result', {
-                                translations: [{
-                                    key: task.translationKey,
-                                    translation: finalTranslation,
-                                    provider: 'openai',
-                                    mode: openAiMode,
-                                    isComplete: false
-                                }]
-                            });
-                        }
-                    }
-                }
-
-                if (finalTranslation) {
-                    this.rendererGateway.fireAndForget('translation/batch-result', {
-                        translations: [{
-                            key: task.translationKey,
-                            translation: finalTranslation,
+                const normalizedItems = this.normalizeOpenAIBatchResult(result.output, windowSentences);
+                const requestedInWindow = windowSentences.filter((sentence) => requestedKeys.has(sentence.translationKey));
+                const resolvedRequestedKeys = new Set(
+                    normalizedItems
+                        .map((item) => item.key)
+                        .filter((key) => requestedKeys.has(key))
+                );
+                normalizedItems.forEach((item) => {
+                    resultsToSave.set(item.key, item.translation);
+                    if (requestedKeys.has(item.key)) {
+                        resultsToRender.push({
+                            key: item.key,
+                            fileHash: item.fileHash,
+                            translation: item.translation,
                             provider: 'openai',
                             mode: openAiMode,
                             isComplete: true
-                        }]
-                    });
-                    return { key: task.translationKey, translation: finalTranslation };
-                }
-                failedCount += 1;
-                if (!firstError) {
-                    firstError = new Error('empty translation');
+                        });
+                    }
+                });
+                if (resolvedRequestedKeys.size < requestedInWindow.length) {
+                    failedCount += requestedInWindow.length - resolvedRequestedKeys.size;
+                    if (!firstError) {
+                        firstError = new Error('openai batch result missing requested items');
+                    }
                 }
             } catch (error) {
-                this.logger.error(`OpenAI 翻译句子失败 (key: ${task.translationKey}):`, error);
-                failedCount += 1;
+                this.logger.error('OpenAI 字幕窗口翻译失败', {
+                    keys: windowSentences.map((sentence) => sentence.translationKey),
+                    error
+                });
+                failedCount += windowSentences.filter((sentence) => requestedKeys.has(sentence.translationKey)).length;
                 if (!firstError) {
                     firstError = error;
                 }
             }
-            return null;
-        });
-
-        const settledResults = await Promise.all(translationPromises);
-        const resultsToSave = new Map<string, string>();
-        settledResults.forEach(res => {
-            if (res) {
-                resultsToSave.set(res.key, res.translation);
-            }
-        });
+        }
 
         if (resultsToSave.size > 0) {
             await this.saveTranslationsByKeys(resultsToSave, storageMode);
             this.logger.info(`OpenAI 翻译流程结束，已保存 ${resultsToSave.size} 条结果。`);
+        }
+
+        if (resultsToRender.length > 0) {
+            this.rendererGateway.fireAndForget('translation/batch-result', {
+                translations: resultsToRender
+            });
         }
 
         if (failedCount > 0) {
@@ -575,6 +572,101 @@ export default class TranslateServiceImpl implements TranslateService {
                 error: firstError,
             });
         }
+    }
+
+    /**
+     * 构建 OpenAI 批量字幕翻译的结构化 schema。
+     *
+     * @param mode 当前字幕模式。
+     * @returns OpenAI 结构化输出 schema。
+     */
+    private buildOpenAIBatchSchema(mode: TranslationMode) {
+        const description = (() => {
+            switch (mode) {
+                case 'zh':
+                    return 'The translated sentence in Simplified Chinese.';
+                case 'simple_en':
+                    return 'The simplified English sentence that preserves the original meaning and subtitle readability.';
+                case 'custom':
+                default:
+                    return 'The generated subtitle sentence that follows the custom style.';
+            }
+        })();
+
+        return z.object({
+            items: z.array(z.object({
+                key: z.string().describe('Original subtitle key.'),
+                translation: z.string().describe(description)
+            }))
+        });
+    }
+
+    /**
+     * 将目标句组织成若干 OpenAI 小窗口。
+     * 说明：窗口默认包含目标句附近的少量上下文，但不会把窗口概念暴露给前端。
+     *
+     * @param tasks 当前请求的目标句。
+     * @param allSentences 当前字幕文件全部句子。
+     * @returns 按窗口组织后的字幕数组。
+     */
+    private buildOpenAIWindows(tasks: Sentence[], allSentences: Sentence[]): Sentence[][] {
+        const sortedIndices = Array.from(new Set(tasks.map((task) => task.index))).sort((a, b) => a - b);
+        const windows: Sentence[][] = [];
+        const coveredRequested = new Set<number>();
+        const contextRadius = 1;
+        const maxWindowSize = 5;
+
+        sortedIndices.forEach((index) => {
+            if (coveredRequested.has(index)) {
+                return;
+            }
+
+            let start = Math.max(0, index - contextRadius);
+            const end = Math.min(allSentences.length - 1, start + maxWindowSize - 1);
+            start = Math.max(0, end - maxWindowSize + 1);
+
+            const windowSentences = allSentences
+                .slice(start, end + 1)
+                .filter((sentence) => sentence && shouldTranslateSubtitleText(sentence.text));
+            if (windowSentences.length === 0) {
+                return;
+            }
+
+            windowSentences.forEach((sentence) => {
+                coveredRequested.add(sentence.index);
+            });
+            windows.push(windowSentences);
+        });
+
+        return windows;
+    }
+
+    /**
+     * 清洗 OpenAI 批量翻译结果，并与窗口内句子做稳定映射。
+     *
+     * @param result OpenAI 返回的结构化结果。
+     * @param windowSentences 当前翻译窗口内的句子。
+     * @returns 可直接保存/回推的句级翻译结果。
+     */
+    private normalizeOpenAIBatchResult(
+        result: OpenAISubtitleBatchResult,
+        windowSentences: Sentence[]
+    ): Array<{ key: string; fileHash: string; translation: string }> {
+        const sentenceMap = new Map(windowSentences.map((sentence) => [sentence.translationKey, sentence]));
+        return (result.items ?? [])
+            .map((item) => {
+                const sentence = sentenceMap.get(item.key);
+                const translation = sanitizeString(item.translation);
+                if (!sentence || !translation) {
+                    return null;
+                }
+                return {
+                    key: item.key,
+                    fileHash: sentence.fileHash,
+                    translation
+                };
+            })
+            .filter((item): item is { key: string; fileHash: string; translation: string } => item !== null);
     }
 
     private buildOpenAISchema(mode: TranslationMode) {
