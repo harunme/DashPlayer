@@ -1,9 +1,12 @@
+/**
+ * 管理字幕翻译缓存、翻译状态以及按需触发的分组翻译请求。
+ */
 import { create } from 'zustand';
 import { subscribeWithSelector } from 'zustand/middleware';
 import hash from 'object-hash';
 import { Sentence } from '@/common/types/SentenceC';
 import { getRendererLogger } from '@/fronted/log/simple-logger';
-import { RendererTranslationItem, TranslationMode } from '@/common/types/TranslationResult';
+import { RendererTranslationFailure, RendererTranslationItem, TranslationMode } from '@/common/types/TranslationResult';
 import { backendClient } from '@/fronted/application/bootstrap/backendClient';
 
 // 每句话的翻译状态
@@ -39,6 +42,9 @@ export interface TranslationActions {
 
     // 批量更新翻译结果 (由前端Controller调用) - 数组
     updateTranslations: (translations: RendererTranslationItem[]) => void;
+
+    // 批量恢复翻译失败状态
+    markTranslationFailed: (failure: RendererTranslationFailure) => void;
 
     // 清除翻译缓存
     clearTranslations: () => void;
@@ -244,6 +250,27 @@ const useTranslation = create(
             });
         },
 
+        // 批量恢复翻译失败状态
+        markTranslationFailed: (failure: RendererTranslationFailure) => {
+            set(state => {
+                if (!shouldAcceptTranslationFailure(state, failure)) {
+                    return state;
+                }
+
+                const newStatus = new Map(state.translationStatus);
+                failure.keys.forEach((key) => {
+                    if (newStatus.get(key) === 'translating') {
+                        newStatus.set(key, 'untranslated');
+                    }
+                });
+
+                return {
+                    ...state,
+                    translationStatus: newStatus
+                };
+            });
+        },
+
         // 清除翻译缓存
         clearTranslations: () => {
             set({
@@ -320,6 +347,33 @@ const shouldAcceptTranslation = (
     }
 
     return true;
+};
+
+/**
+ * 判断当前翻译失败事件是否属于前端当前激活的字幕上下文。
+ *
+ * @param state 当前翻译状态。
+ * @param failure 后端回传的失败事件。
+ * @returns 只有当前文件、当前引擎/模式匹配时才接收。
+ */
+const shouldAcceptTranslationFailure = (
+    state: TranslationState,
+    failure: RendererTranslationFailure
+): boolean => {
+    if (failure.fileHash !== state.activeFileHash) {
+        return false;
+    }
+
+    if (state.engine === 'none') {
+        return true;
+    }
+
+    if (failure.provider === 'openai') {
+        const mode = failure.mode ?? 'zh';
+        return state.engine === 'openai' && mode === state.openAiMode;
+    }
+
+    return state.engine === failure.provider;
 };
 
 export default useTranslation;
