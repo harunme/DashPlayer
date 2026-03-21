@@ -4,7 +4,6 @@ import { useHotkeys } from 'react-hotkeys-hook';
 import useSetting from '@/fronted/hooks/useSetting';
 import { useSubtitleScrollState } from '@/fronted/hooks/useSubtitleScroll';
 import useChatPanel from '@/fronted/hooks/useChatPanel';
-import useCopyModeController from '@/fronted/hooks/useCopyModeController';
 import useFavouriteClip from '@/fronted/hooks/useFavouriteClip';
 import { playerV2Actions } from '@/fronted/components/feature/player/player-v2';
 import { usePlayerV2 } from '@/fronted/hooks/usePlayerV2';
@@ -59,14 +58,12 @@ export default function PlayerShortCut() {
         toggleWordLevelDisplay: s.values.get('shortcut.toggleWordLevelDisplay') ?? '',
         nextPlaybackRate: s.values.get('shortcut.nextPlaybackRate') ?? '',
         aiChat: s.values.get('shortcut.aiChat') ?? '',
-        toggleCopyMode: s.values.get('shortcut.toggleCopyMode') ?? '',
         addClip: s.values.get('shortcut.addClip') ?? '',
     })));
     const { createFromCurrent } = useChatPanel(useShallow((s) => ({
         createFromCurrent: s.createFromCurrent
     })));
 
-    const { enterCopyMode, exitCopyMode, isCopyMode } = useCopyModeController();
     const setSingleRepeat = usePlayerV2((s) => s.setSingleRepeat);
     const setAutoPause = usePlayerV2((s) => s.setAutoPause);
     const singleRepeat = usePlayerV2((s) => s.singleRepeat);
@@ -152,13 +149,6 @@ export default function PlayerShortCut() {
         createFromCurrent();
     });
 
-    useHotkeys(process(shortcuts.toggleCopyMode), (ke, he) => {
-        if (ke.type === 'keydown' && !isCopyMode) {
-            enterCopyMode();
-        } else if (ke.type === 'keyup' && isCopyMode) {
-            exitCopyMode();
-        }
-    }, { keyup: true, keydown: true });
     useHotkeys(process(shortcuts.addClip), async () => {
         useFavouriteClip.getState().changeCurrentLineClip();
     });

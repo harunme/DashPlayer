@@ -40,8 +40,6 @@ export interface ShortcutSettingDetailVO {
     nextPlaybackRate: string;
     /** 打开 AI 对话快捷键。 */
     aiChat: string;
-    /** 切换复制模式快捷键。 */
-    toggleCopyMode: string;
     /** 添加片段快捷键。 */
     addClip: string;
     /** 打开控制面板快捷键。 */
