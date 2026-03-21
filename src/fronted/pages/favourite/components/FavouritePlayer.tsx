@@ -285,7 +285,6 @@ const FavouritePlayer = () => {
         onPrevSentence={handlePrevSentence}
         onNextSentence={handleNextSentence}
         onRepeatSentence={() => playerV2Actions.repeatCurrent({ loop: false })}
-        onSeekToCurrentStart={() => playerV2Actions.repeatCurrent({ loop: false })}
         onChangeSingleRepeat={() => playerV2Actions.setSingleRepeat(!singleRepeat)}
         onChangeAutoPause={() => playerV2Actions.setAutoPause(!autoPause)}
       />
