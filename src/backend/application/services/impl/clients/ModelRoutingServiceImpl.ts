@@ -6,7 +6,7 @@ import { SettingKey } from '@/common/types/store_schema';
 
 @injectable()
 export default class ModelRoutingServiceImpl implements ModelRoutingService {
-    private static readonly DEFAULT_MODEL = 'gpt-5.2';
+    private static readonly DEFAULT_MODEL = 'gpt-5.4-nano';
 
     private resolveFeatureKey(scene: AiModelScene): string {
         if (scene === 'sentenceLearning') {
