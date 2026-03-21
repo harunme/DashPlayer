@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useMemo, useState, useRef } from 'react'
 import useSWR, { useSWRConfig } from 'swr';
 import { apiPath } from '@/fronted/lib/swr-util';
 import { VideoLearningClipPage } from '@/common/types/vo/VideoLearningClipVO';
-import { VideoClip } from '@/fronted/hooks/useClipTender';
+import { VideoClip } from './types';
 import ClipGrid from '@/fronted/pages/video-learning/ClipGrid';
 import VideoPlayerPane from '@/fronted/pages/video-learning/VideoPlayerPane';
 import WordSidebar from '@/fronted/pages/video-learning/WordSidebar';

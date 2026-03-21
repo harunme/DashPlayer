@@ -1,7 +1,7 @@
 import React, { useEffect, memo, useRef, useCallback } from 'react';
 import UrlUtil from '@/common/utils/UrlUtil';
 import SubtitleList from './SubtitleList';
-import { VideoClip } from '@/fronted/hooks/useClipTender';
+import { VideoClip } from './types';
 import { AspectRatio } from '@/fronted/components/ui/aspect-ratio';
 import VideoPlayerShortcut from './VideoPlayerShortcut';
 import { PlayerEngine } from '@/fronted/components/feature/player/player';

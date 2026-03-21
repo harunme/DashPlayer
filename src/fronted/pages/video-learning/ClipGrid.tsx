@@ -6,7 +6,7 @@ import {
   TooltipProvider,
   TooltipTrigger
 } from '@/fronted/components/ui/tooltip';
-import { VideoClip } from '@/fronted/hooks/useClipTender';
+import { VideoClip } from './types';
 import UrlUtil from '@/common/utils/UrlUtil';
 import { cn } from '@/fronted/lib/utils';
 
