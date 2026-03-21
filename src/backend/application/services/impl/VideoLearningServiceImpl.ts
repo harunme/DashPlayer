@@ -29,7 +29,7 @@ import SubtitleService from '@/backend/application/services/SubtitleService';
 
 import { ClipMeta, ClipSrtLine, OssBaseMeta } from '@/common/types/clipMeta';
 import { ClipVocabularyEntry, VideoLearningClipVO, VideoLearningClipPage } from '@/common/types/vo/VideoLearningClipVO';
-import { VideoLearningClipStatusVO } from '@/common/types/vo/VideoLearningClipStatusVO';
+import { GlobalVideoLearningClipQueueStatusVO, VideoLearningClipStatusVO } from '@/common/types/vo/VideoLearningClipStatusVO';
 import { WordMatchService, MatchedWord } from '@/backend/application/services/WordMatchService';
 import { SrtSentence } from '@/common/types/SentenceC';
 import { concurrency } from '@/backend/application/kernel/concurrency';
@@ -106,6 +106,13 @@ export default class VideoLearningServiceImpl implements VideoLearningService {
         return (this.cacheService.get('cache:srt', srtKey) as SrtCache) ?? null;
     }
 
+    /**
+     * 将当前视频的候选片段批量加入自动裁切队列。
+     *
+     * @param videoPath 视频路径。
+     * @param srtKey 字幕缓存键。
+     * @param srtPath 可选字幕路径，用于补充加载缓存。
+     */
     public async autoClip(videoPath: string, srtKey: string, srtPath?: string): Promise<void> {
         const srt = await this.ensureSrtCached(srtKey, srtPath);
         if (!srt) {
@@ -173,20 +180,53 @@ export default class VideoLearningServiceImpl implements VideoLearningService {
         );
     }
 
-    public async cancelAddLearningClip(srtKey: string, indexInSrt: number): Promise<void> {
-        const clipKey = this.mapToClipKey(srtKey, indexInSrt);
-        const existingTask = this.taskQueue.get(clipKey);
-        const cachedSrt = this.getSrtFromCache(srtKey);
-        this.taskQueue.set(clipKey, {
-            videoPath: '',
-            srtKey,
-            indexInSrt,
-            matchedWords: [],
-            clipKey,
-            operation: 'cancel',
-            srtPath: existingTask?.srtPath ?? cachedSrt?.filePath,
-        });
+    /**
+     * 返回全局自动裁切队列的实时状态。
+     *
+     * @returns 全局自动裁切队列快照。
+     */
+    public async getGlobalClipQueueStatus(): Promise<GlobalVideoLearningClipQueueStatusVO> {
+        const queuedCount = this.getQueuedAutoClipTaskCount();
+        return {
+            queuedCount,
+            hasQueuedTasks: queuedCount > 0,
+        };
+    }
 
+    /**
+     * 清空尚未开始处理的自动裁切队列。
+     *
+     * 说明：
+     * - 这里只移除队列中的新增裁切任务。
+     * - 已经进入 ffmpeg 的任务允许自然完成，不做强制中断。
+     *
+     * @returns 被移除的排队任务数量。
+     */
+    public async cancelAllAutoClipTasks(): Promise<number> {
+        const queuedTasks = Array.from(this.taskQueue.values()).filter((task) => task.operation === 'add');
+        if (queuedTasks.length === 0) {
+            return 0;
+        }
+
+        const affectedSrtKeys = new Set<string>();
+        for (const task of queuedTasks) {
+            affectedSrtKeys.add(task.srtKey);
+            this.taskQueue.delete(task.clipKey);
+        }
+
+        for (const srtKey of affectedSrtKeys) {
+            this.clipStatusCache.delete(srtKey);
+        }
+
+        return queuedTasks.length;
+    }
+    /**
+     * 统计全局自动裁切队列中的新增任务数量。
+     *
+     * @returns 当前队列中的新增任务数。
+     */
+    private getQueuedAutoClipTaskCount(): number {
+        return Array.from(this.taskQueue.values()).filter((task) => task.operation === 'add').length;
     }
 
     private mapToClipKey(srtKey: string, indexInSrt: number): string {

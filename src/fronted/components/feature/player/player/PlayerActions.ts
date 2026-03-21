@@ -1,14 +1,20 @@
-// src/fronted/playerV2/PlayerV2Actions.ts
-// 说明：
-// - 将所有"行为/命令"集中在此类里，内部仅转调 usePlayerV2.getState()，不改变原有逻辑
-// - 组件侧不需要从 hook 读取方法，统一从这里调用，减少 selector 组装带来的额外重渲染
+/**
+ * 汇总播放器的命令式操作入口，供组件和页面统一调用。
+ *
+ * 说明：
+ * - 将所有“行为/命令”集中在此类里，内部仅转调 `usePlayer.getState()`
+ * - 组件侧不需要从 hook 读取方法，统一从这里调用，减少 selector 组装带来的额外重渲染
+ */
 
-import { usePlayerV2, SeekAction } from '@/fronted/hooks/usePlayerV2';
+import { usePlayer, SeekAction } from '@/fronted/hooks/usePlayer';
 import { Sentence } from '@/common/types/SentenceC';
 
-export class PlayerV2Actions {
+/**
+ * 提供播放器的命令式动作封装，避免各处直接耦合 store 细节。
+ */
+export class PlayerActions {
   private get s() {
-    return usePlayerV2.getState();
+    return usePlayer.getState();
   }
 
   // 源与字幕
@@ -41,7 +47,7 @@ export class PlayerV2Actions {
 
   /**
    * 高频：updateExactPlayTime
-   * - 来源：PlayerEngineV2 -> ReactPlayer.onProgress
+   * - 来源：PlayerEngine -> ReactPlayer.onProgress
    * - 频率：默认 progressInterval = 50ms（可配置）
    * - 建议：避免在大型组件中直接订阅 s.internal.exactPlayTime，
    *   可将进度条/时间显示拆成小组件单独订阅。
@@ -91,4 +97,4 @@ export class PlayerV2Actions {
 }
 
 // 单例导出：组件与业务模块统一从这里调用动作
-export const playerV2Actions = new PlayerV2Actions();
+export const playerActions = new PlayerActions();

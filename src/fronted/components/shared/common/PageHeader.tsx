@@ -25,7 +25,7 @@ export interface PageHeaderProps {
 const PageHeader = ({ title, description, rightSlot, className }: PageHeaderProps) => {
     return (
         <div className={cn('px-2 py-1', className)}>
-            <div className="flex items-baseline justify-between gap-4">
+            <div className="flex items-center justify-between gap-4 min-h-10">
                 <div className="flex items-baseline gap-3 min-w-0">
                     <h1 className="text-2xl font-semibold tracking-tight text-foreground">{title}</h1>
                     {description ? (

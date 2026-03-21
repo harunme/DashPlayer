@@ -9,18 +9,15 @@ export default class VideoLearningApiController implements Controller {
     @inject(TYPES.VideoLearningService)
     private videoLearningService!: VideoLearningService;
 
-    constructor() {
-        this.registerApis();
-    }
-
     registerRoutes(): void {
-        // 方法已在构造函数中通过 registerApis() 调用
-    }
-
-    private registerApis() {
         registerRoute('video-learning/detect-clip-status', async (params) => {
             const { videoPath, srtKey, srtPath } = params;
             const result = await this.videoLearningService.detectClipStatus(videoPath, srtKey, srtPath);
+            return result;
+        });
+
+        registerRoute('video-learning/clip-queue-status', async () => {
+            const result = await this.videoLearningService.getGlobalClipQueueStatus();
             return result;
         });
 
@@ -30,10 +27,9 @@ export default class VideoLearningApiController implements Controller {
             return { success: true };
         });
 
-        registerRoute('video-learning/cancel-add', async (params) => {
-            const { srtKey, indexInSrt } = params;
-            await this.videoLearningService.cancelAddLearningClip(srtKey, indexInSrt);
-            return { success: true };
+        registerRoute('video-learning/cancel-auto-clip-all', async () => {
+            const clearedCount = await this.videoLearningService.cancelAllAutoClipTasks();
+            return { success: true, clearedCount };
         });
 
         registerRoute('video-learning/delete', async (params) => {

@@ -11,7 +11,10 @@
         "testing": "Testing...",
         "downloadDone": "Download complete",
         "downloadFailed": "Download failed",
-        "downloading": "Downloading..."
+        "downloading": "Downloading...",
+        "download": "Download",
+        "ready": "Ready",
+        "notDownloaded": "Not downloaded"
     },
     "sections": {
         "shortcut": "Shortcut Controls",
@@ -53,10 +56,20 @@
         "title": "Shortcuts",
         "description": "Use commas to separate multiple shortcuts.",
         "record": "Record shortcut",
+        "edit": "Edit shortcut",
         "resetDefault": "Reset to default",
         "dialogTitle": "Capture shortcut",
         "dialogDescription": "Focus the input below, then press the shortcut you want to add.",
+        "dialogCurrentShortcuts": "Current shortcuts",
+        "dialogNoShortcuts": "No shortcuts yet",
+        "dialogAddRecorded": "Add recorded shortcut",
+        "dialogRemoveShortcut": "Remove shortcut",
+        "dialogResetDefault": "Reset to default",
         "saveChanges": "Save changes",
+        "tableHeader": {
+            "action": "Action",
+            "keys": "Shortcut"
+        },
         "items": {
             "previousSentence": { "title": "Previous subtitle", "description": "Jump to the previous subtitle line." },
             "nextSentence": { "title": "Next subtitle", "description": "Jump to the next subtitle line." },
@@ -76,7 +89,6 @@
             "clearAdjust": { "title": "Reset subtitle timing offset", "description": "Restore subtitle timing to default." },
             "nextPlaybackRate": { "title": "Cycle playback speed", "description": "Switch among your preset playback speeds." },
             "aiChat": { "title": "Open AI chat", "description": "Open the AI chat panel." },
-            "toggleCopyMode": { "title": "Toggle copy mode", "description": "Switch subtitle copy mode." },
             "addClip": { "title": "Add favorite clip", "description": "Save the current subtitle segment to favorites." },
             "openControlPanel": { "title": "Open control panel", "description": "Open the player control panel." }
         }
@@ -112,27 +124,6 @@
             "tooltipDescription": "Rebuild Vocabulary Studio clip records from the word_video folder when data is missing or abnormal."
         },
         "wordClipsHint": "Vocabulary Studio clips are stored under word_video. Use this action to rebuild database records when needed."
-    },
-    "youdao": {
-        "title": "Dictionary Lookup",
-        "description": "Configure Youdao credentials to enable dictionary lookup.",
-        "secretId": "App ID",
-        "secretKey": "App Key",
-        "docHintPrefix": "You need Youdao Cloud credentials to use dictionary lookup. See"
-    },
-    "tenant": {
-        "title": "Subtitle Translation",
-        "description": "Configure translation engines and related credentials.",
-        "translationEngineLabel": "Translation engine",
-        "selectEnginePlaceholder": "Select translation engine",
-        "engineTencent": "Tencent Translation",
-        "engineOpenAi": "OpenAI Translation",
-        "engineHelp": "Choose the translation engine. Tencent is typically faster, while OpenAI is often more accurate for complex context.",
-        "tencentSecretId": "Tencent SecretId",
-        "tencentSecretKey": "Tencent SecretKey",
-        "tencentHintPrefix": "Tencent credentials are required for subtitle translation. See",
-        "openaiHintLine1": "OpenAI translation uses the key and endpoint configured in Service Credentials.",
-        "openaiHintLine2": "Make sure your OpenAI configuration is complete and valid first."
     },
     "engineSelection": {
         "title": "Feature Controls",
@@ -180,8 +171,15 @@
         "downloadVadDone": "VAD model downloaded.",
         "openai": {
             "description": "Used for subtitle translation, dictionary lookup, and cloud transcription.",
-            "modelsLabel": "Available models (one per line)",
-            "modelsHint": "Supports newline or comma separators. Feature Controls uses this list for model selection per feature."
+            "modelsLabel": "Available models",
+            "tableModel": "Model",
+            "tableUsage": "Used by",
+            "tableAction": "Action",
+            "usageNone": "Not used",
+            "addPlaceholder": "Enter model id, e.g. gpt-5.2",
+            "addButton": "Add",
+            "usedByHint": "Models used by features cannot be deleted.",
+            "duplicateModel": "Model already exists: {{model}}"
         },
         "tencent": {
             "title": "Tencent Translation",

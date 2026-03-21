@@ -1,11 +1,14 @@
-import { ServiceCredentialSettingVO } from '@/common/types/vo/service-credentials-setting-vo';
+import {
+    ServiceCredentialSettingDetailVO,
+    ServiceCredentialSettingSaveVO,
+} from '@/common/types/vo/service-credentials-setting-vo';
 import { EngineSelectionSettingVO } from '@/common/types/vo/engine-selection-setting-vo';
 
 export default interface SettingService {
-    queryServiceCredentials(): Promise<ServiceCredentialSettingVO>;
-    updateServiceCredentials(settings: ServiceCredentialSettingVO): Promise<void>;
-    queryEngineSelection(): Promise<EngineSelectionSettingVO>;
-    updateEngineSelection(settings: EngineSelectionSettingVO): Promise<void>;
+    getServiceCredentialsDetail(): Promise<ServiceCredentialSettingDetailVO>;
+    saveServiceCredentials(settings: ServiceCredentialSettingSaveVO): Promise<void>;
+    getEngineSelectionDetail(): Promise<EngineSelectionSettingVO>;
+    saveEngineSelection(settings: EngineSelectionSettingVO): Promise<void>;
     migrateProviderSettings(): Promise<void>;
     
     // Service provider queries

@@ -11,7 +11,10 @@
         "testing": "测试中...",
         "downloadDone": "下载完成",
         "downloadFailed": "下载失败",
-        "downloading": "下载中..."
+        "downloading": "下载中...",
+        "download": "下载",
+        "ready": "就绪",
+        "notDownloaded": "未下载"
     },
     "sections": {
         "shortcut": "快捷键",
@@ -53,10 +56,20 @@
         "title": "快捷键",
         "description": "多个快捷键用 , 分割",
         "record": "录制快捷键",
+        "edit": "编辑快捷键",
         "resetDefault": "重置为默认值",
         "dialogTitle": "录入快捷键",
         "dialogDescription": "点击下面的输入框，然后按下你想要的快捷键。",
+        "dialogCurrentShortcuts": "当前快捷键",
+        "dialogNoShortcuts": "暂无快捷键",
+        "dialogAddRecorded": "录入并添加",
+        "dialogRemoveShortcut": "删除快捷键",
+        "dialogResetDefault": "重置为默认值",
         "saveChanges": "保存修改",
+        "tableHeader": {
+            "action": "功能",
+            "keys": "快捷键"
+        },
         "items": {
             "previousSentence": { "title": "上一句", "description": "跳转到上一句" },
             "nextSentence": { "title": "下一句", "description": "跳转到下一句" },
@@ -76,7 +89,6 @@
             "clearAdjust": { "title": "清除字幕偏移", "description": "恢复字幕时间到默认值" },
             "nextPlaybackRate": { "title": "切换播放速度", "description": "在常用播放速度之间循环切换" },
             "aiChat": { "title": "打开 AI 对话", "description": "唤起 AI 对话窗口" },
-            "toggleCopyMode": { "title": "切换复制模式", "description": "切换字幕复制模式" },
             "addClip": { "title": "添加收藏片段", "description": "将当前字幕加入收藏夹" },
             "openControlPanel": { "title": "打开控制面板", "description": "打开播放器控制面板" }
         }
@@ -112,27 +124,6 @@
             "tooltipDescription": "当数据丢失或异常时，可从 word_video 文件夹重新构建词汇工坊片段记录。"
         },
         "wordClipsHint": "词汇工坊片段存储在 word_video 目录，需要时可在此重建数据库记录。"
-    },
-    "youdao": {
-        "title": "查单词",
-        "description": "配置有道密钥以启用查词功能。",
-        "secretId": "应用 ID",
-        "secretKey": "应用密钥",
-        "docHintPrefix": "你需要有道智云密钥才能使用查词功能，详见"
-    },
-    "tenant": {
-        "title": "字幕翻译",
-        "description": "配置翻译引擎和相关密钥。",
-        "translationEngineLabel": "翻译引擎",
-        "selectEnginePlaceholder": "选择翻译引擎",
-        "engineTencent": "腾讯翻译",
-        "engineOpenAi": "OpenAI 翻译",
-        "engineHelp": "选择翻译引擎。腾讯翻译响应更快，OpenAI 在复杂语境下通常更准确。",
-        "tencentSecretId": "腾讯云 SecretId",
-        "tencentSecretKey": "腾讯云 SecretKey",
-        "tencentHintPrefix": "你需要腾讯云密钥才能使用字幕翻译，详见",
-        "openaiHintLine1": "OpenAI 翻译使用你在“服务凭据”页面配置的密钥和端点。",
-        "openaiHintLine2": "请先确认 OpenAI 配置完整且可用。"
     },
     "engineSelection": {
         "title": "功能设置",
@@ -180,8 +171,15 @@
         "downloadVadDone": "静音检测模型已下载。",
         "openai": {
             "description": "用于字幕翻译、词典与云端转录能力。",
-            "modelsLabel": "可用模型列表（每行一个）",
-            "modelsHint": "支持换行或逗号分隔。功能设置页会按这里的列表给各功能选模型。"
+            "modelsLabel": "可用模型列表",
+            "tableModel": "模型",
+            "tableUsage": "占用功能",
+            "tableAction": "操作",
+            "usageNone": "未占用",
+            "addPlaceholder": "输入模型标识，如 gpt-5.2",
+            "addButton": "添加",
+            "usedByHint": "已被功能占用的模型不可删除。",
+            "duplicateModel": "模型已存在：{{model}}"
         },
         "tencent": {
             "title": "腾讯翻译",

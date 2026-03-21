@@ -5,7 +5,7 @@ import { swrMutate, SWR_KEY } from '@/fronted/lib/swr-util';
 import { cn } from '@/fronted/lib/utils';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/fronted/components/ui/card';
 import usePlayerUi from '@/fronted/hooks/usePlayerUi';
-import { usePlayerV2 } from '@/fronted/hooks/usePlayerV2';
+import { usePlayer } from '@/fronted/hooks/usePlayer';
 import useLayout from '@/fronted/hooks/useLayout';
 import useSetting from '@/fronted/hooks/useSetting';
 import { SettingKey } from '@/common/types/store_schema';
@@ -36,12 +36,12 @@ export default function ControlBox() {
     }))
   );
 
-  const singleRepeat = usePlayerV2((s) => s.singleRepeat);
-  const setSingleRepeat = usePlayerV2((s) => s.setSingleRepeat);
-  const autoPause = usePlayerV2((s) => s.autoPause);
-  const setAutoPause = usePlayerV2((s) => s.setAutoPause);
-  const autoPlayNext = usePlayerV2((s) => s.autoPlayNext);
-  const setAutoPlayNext = usePlayerV2((s) => s.setAutoPlayNext);
+  const singleRepeat = usePlayer((s) => s.singleRepeat);
+  const setSingleRepeat = usePlayer((s) => s.setSingleRepeat);
+  const autoPause = usePlayer((s) => s.autoPause);
+  const setAutoPause = usePlayer((s) => s.setAutoPause);
+  const autoPlayNext = usePlayer((s) => s.autoPlayNext);
+  const setAutoPlayNext = usePlayer((s) => s.setAutoPlayNext);
 
   const setSetting = useSetting((s) => s.setSetting);
   const setting = useSetting((s) => s.setting);

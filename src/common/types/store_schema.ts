@@ -17,7 +17,6 @@ export const SettingKeyObj = {
     'shortcut.clearAdjust': 'v',
     'shortcut.nextPlaybackRate': 'p',
     'shortcut.aiChat': 'slash',
-    'shortcut.toggleCopyMode': 'shift+y',
     'shortcut.addClip': 'shift+l',
     'shortcut.openControlPanel': 'shift+p',
     'userSelect.playbackRateStack':'',

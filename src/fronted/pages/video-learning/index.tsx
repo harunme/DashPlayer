@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useMemo, useState, useRef } from 'react'
 import useSWR, { useSWRConfig } from 'swr';
 import { apiPath } from '@/fronted/lib/swr-util';
 import { VideoLearningClipPage } from '@/common/types/vo/VideoLearningClipVO';
-import { VideoClip } from '@/fronted/hooks/useClipTender';
+import { VideoClip } from './types';
 import ClipGrid from '@/fronted/pages/video-learning/ClipGrid';
 import VideoPlayerPane from '@/fronted/pages/video-learning/VideoPlayerPane';
 import WordSidebar from '@/fronted/pages/video-learning/WordSidebar';
@@ -439,8 +439,8 @@ export default function VideoLearningPage() {
       />
 
       {/* 主体内容区域 */}
-      <div className="flex-1 flex gap-6 overflow-hidden">
-        <div className="w-[420px] flex-shrink-0">
+      <div className="flex-1 flex overflow-hidden">
+        <div className="w-80 flex-shrink-0 pr-4 border-r border-border/40">
           <WordSidebar
             words={words}
             loading={loading}
@@ -454,10 +454,10 @@ export default function VideoLearningPage() {
           />
         </div>
 
-        <div className="flex-1 flex flex-col gap-4 min-h-0">
-          <div className="flex-1 min-h-0 rounded-2xl border border-border bg-card/80 shadow-sm backdrop-blur p-4">
+        <div className="flex-1 flex flex-col gap-4 min-h-0 pl-6">
+          <div className="flex-1 min-h-0">
             {clips.length === 0 ? (
-              <div className="h-full w-full rounded-xl border border-dashed border-border p-8 flex flex-col gap-4 items-start justify-center">
+              <div className="h-full w-full rounded-xl border border-dashed border-border/60 p-8 flex flex-col gap-4 items-start justify-center">
                 <h3 className="text-xl font-semibold">{t('vocabularyStudio.empty.title')}</h3>
                 <p className="text-sm text-muted-foreground leading-6">
                   {t('vocabularyStudio.empty.guideAdd')}
@@ -477,11 +477,10 @@ export default function VideoLearningPage() {
                 onClickClip={(idx) => {
                   playClip(idx);
                 }}
-                ensureThumbnails={ensureThumbnails}
               />
             )}
           </div>
-          <div className="rounded-2xl border border-border bg-card/90 px-4 py-3 shadow-sm">
+          <div className="px-1 py-2">
             <div className="flex flex-nowrap items-center justify-between gap-3">
               <div className="text-sm text-muted-foreground tabular-nums">
                 {totalClips > 0

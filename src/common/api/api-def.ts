@@ -15,11 +15,15 @@ import {ClipQuery, SimpleClipQuery} from '@/common/api/dto';
 import {ClipMeta, OssBaseMeta} from '@/common/types/clipMeta';
 import WatchHistoryVO from '@/common/types/WatchHistoryVO';
 import {VideoLearningClipPage} from '@/common/types/vo/VideoLearningClipVO';
-import {VideoLearningClipStatusVO} from '@/common/types/vo/VideoLearningClipStatusVO';
+import { GlobalVideoLearningClipQueueStatusVO, VideoLearningClipStatusVO } from '@/common/types/vo/VideoLearningClipStatusVO';
 import { ChatStartParams, ChatStartResult, ChatWelcomeParams } from '@/common/types/chat';
 import { AnalysisStartParams, AnalysisStartResult } from '@/common/types/analysis';
-import { ServiceCredentialSettingVO } from '@/common/types/vo/service-credentials-setting-vo';
+import {
+    ServiceCredentialSettingDetailVO,
+    ServiceCredentialSettingSaveVO,
+} from '@/common/types/vo/service-credentials-setting-vo';
 import { EngineSelectionSettingVO } from '@/common/types/vo/engine-selection-setting-vo';
+import { ShortcutSettingDetailVO, ShortcutSettingSaveVO } from '@/common/types/vo/shortcut-setting-vo';
 import { WhisperModelStatusVO, WhisperModelSize, WhisperVadModel } from '@/common/types/vo/whisper-model-vo';
 import { VideoInfo } from '@/common/types/video-info';
 
@@ -151,18 +155,17 @@ interface StorageDef {
 }
 
 interface SettingsDef {
-    'settings/service-credentials/get': { params: void, return: ServiceCredentialSettingVO };
-    'settings/service-credentials/update': { params: ServiceCredentialSettingVO, return: void };
+    'settings/service-credentials/detail': { params: void, return: ServiceCredentialSettingDetailVO };
+    'settings/service-credentials/save': { params: ServiceCredentialSettingSaveVO, return: void };
     'settings/service-credentials/test-openai': { params: void, return: { success: boolean, message: string } };
     'settings/service-credentials/test-tencent': { params: void, return: { success: boolean, message: string } };
     'settings/service-credentials/test-youdao': { params: void, return: { success: boolean, message: string } };
-    'settings/engine-selection/get': { params: void, return: EngineSelectionSettingVO };
-    'settings/engine-selection/update': { params: EngineSelectionSettingVO, return: void };
+    'settings/engine-selection/detail': { params: void, return: EngineSelectionSettingVO };
+    'settings/engine-selection/save': { params: EngineSelectionSettingVO, return: void };
+    'settings/shortcuts/detail': { params: void, return: ShortcutSettingDetailVO };
     'settings/appearance/update': { params: { theme: string; fontSize: string }, return: void };
-    'settings/shortcuts/update': { params: Partial<Record<SettingKey, string>>, return: void };
+    'settings/shortcuts/update': { params: ShortcutSettingSaveVO, return: void };
     'settings/storage/update': { params: { path: string; collection: string }, return: void };
-    'settings/translation/update': { params: { engine: 'tencent' | 'openai'; tencentSecretId?: string; tencentSecretKey?: string }, return: void };
-    'settings/youdao/update': { params: { secretId: string; secretKey: string }, return: void };
 }
 
 interface WhisperModelDef {
@@ -240,13 +243,17 @@ interface VideoLearningDef {
         params: { videoPath: string; srtKey: string; srtPath?: string },
         return: VideoLearningClipStatusVO
     };
+    'video-learning/clip-queue-status': {
+        params: void,
+        return: GlobalVideoLearningClipQueueStatusVO
+    };
     'video-learning/auto-clip': {
         params: { videoPath: string; srtKey: string; srtPath?: string },
         return: { success: boolean }
     };
-    'video-learning/cancel-add': {
-        params: { srtKey: string; indexInSrt: number },
-        return: { success: boolean }
+    'video-learning/cancel-auto-clip-all': {
+        params: void,
+        return: { success: boolean; clearedCount: number }
     };
     'video-learning/delete': {
         params: { key: string },

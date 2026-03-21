@@ -1,9 +1,9 @@
 {
-    "playbackLab": "Playback Lab",
+    "playbackLab": "Immersive Player",
     "savedMoments": "Saved Moments",
-    "subtitleWorkspace": "Subtitle Workspace",
-    "sentenceSplitter": "Sentence Splitter",
-    "formatConverter": "Format Conversion",
+    "subtitleWorkspace": "Subtitle Generator",
+    "sentenceSplitter": "Split Long Videos",
+    "formatConverter": "Fix Playback Issues",
     "vocabularyStudio": "Vocabulary Studio",
     "settingsCenter": "Settings Center",
     "productStory": "About DashPlayer"
