@@ -246,6 +246,15 @@ const buildRequestedTranslationKeys = (fileHash: string, indices: number[]): str
 @injectable()
 export default class TranslateServiceImpl implements TranslateService {
     private readonly logger = getMainLogger('TranslateServiceImpl');
+    /**
+     * 记录进行中的单词词典查询，避免同 provider + 同单词被短时间重复触发。
+     *
+     * 约束：
+     * - 仅用于非强制刷新请求。
+     * - key 由 provider 与归一化后的单词组成。
+     * - 请求完成后必须立即清理，避免脏状态长期驻留。
+     */
+    private readonly wordLookupInFlight = new Map<string, Promise<YdRes | OpenAIDictionaryResult | null>>();
     @inject(TYPES.YouDaoClientProvider)
     private youDaoProvider!: ClientProviderService<YouDaoDictionaryClient>;
     @inject(TYPES.TencentClientProvider)
@@ -847,6 +856,56 @@ export default class TranslateServiceImpl implements TranslateService {
             this.logger.info('没有启用的字典服务');
             return null;
         }
+
+        if (forceRefresh) {
+            return this.executeWordLookup(str, currentProvider, true, requestId);
+        }
+
+        const lookupKey = this.buildWordLookupKey(currentProvider, str);
+        const existingPromise = this.wordLookupInFlight.get(lookupKey);
+        if (existingPromise) {
+            this.logger.debug('复用进行中的单词查询请求', {
+                provider: currentProvider,
+                word: str,
+                lookupKey,
+            });
+            return existingPromise;
+        }
+
+        const lookupPromise = this.executeWordLookup(str, currentProvider, false, requestId)
+            .finally(() => {
+                this.wordLookupInFlight.delete(lookupKey);
+            });
+        this.wordLookupInFlight.set(lookupKey, lookupPromise);
+        return lookupPromise;
+    }
+
+    /**
+     * 归一化单词查询 key，保证大小写与首尾空白不会影响并发合并。
+     *
+     * @param provider 当前字典 provider。
+     * @param word 原始查询词。
+     * @returns 可用于 in-flight 映射的稳定 key。
+     */
+    private buildWordLookupKey(provider: 'openai' | 'youdao', word: string): string {
+        return `${provider}:${word.trim().toLowerCase()}`;
+    }
+
+    /**
+     * 执行单词词典查询，并优先复用持久化缓存结果。
+     *
+     * @param str 查询单词。
+     * @param currentProvider 当前字典 provider。
+     * @param forceRefresh 是否绕过缓存强制刷新。
+     * @param requestId 渲染层流式请求 id。
+     * @returns 命中缓存或远端查询得到的词典结果。
+     */
+    private async executeWordLookup(
+        str: string,
+        currentProvider: 'openai' | 'youdao',
+        forceRefresh: boolean,
+        requestId?: string
+    ): Promise<YdRes | OpenAIDictionaryResult | null> {
 
         // 如果不是强制刷新，先检查缓存
         if (!forceRefresh) {
