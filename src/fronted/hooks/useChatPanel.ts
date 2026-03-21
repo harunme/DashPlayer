@@ -139,6 +139,14 @@ const empty = (): ChatPanelState => {
     };
 };
 
+/**
+ * 在新建主题后启动分析请求。
+ * 这里显式限制为“创建新会话”场景触发，避免前进/后退恢复历史状态时重复请求。
+ */
+const startAnalysisForTopic = async () => {
+    await useChatPanel.getState().startAnalysis();
+};
+
 const useChatPanel = create(
     subscribeWithSelector<ChatPanelState & ChatPanelActions>((set, get) => ({
         ...empty(),
@@ -204,6 +212,9 @@ const useChatPanel = create(
                 originalTopic: text,
                 fullText: context.join(' '),
             }, topic);
+            startAnalysisForTopic().catch((error) => {
+                getRendererLogger('useChatPanel').error('failed to start analysis for selected topic', { error });
+            });
         },
         createFromCurrent: async () => {
             undoRedo.add(copy(get()));
@@ -248,6 +259,9 @@ const useChatPanel = create(
                 originalTopic: ct.text,
                 fullText: subtitles.map(e => e.text).join(' '),
             }, topic);
+            startAnalysisForTopic().catch((error) => {
+                getRendererLogger('useChatPanel').error('failed to start analysis for current topic', { error });
+            });
         },
         clear: () => {
             undoRedo.clear();
@@ -588,19 +602,4 @@ const scheduleWelcomeMessage = (params: ChatWelcomeParams, topic: Topic) => {
             getRendererLogger('useChatPanel').error('failed to stream welcome message', { error });
         });
 };
-
-
-let running = false;
-useChatPanel.subscribe(
-    (s) => s.topic,
-    async (topic) => {
-        if (topic === 'offscreen') {
-            return;
-        }
-        if (running) return;
-        running = true;
-        await useChatPanel.getState().startAnalysis();
-        running = false;
-    }
-);
 export default useChatPanel;
