@@ -20,6 +20,6 @@ export default function GlobalShortCut() {
 
     useHotkeys(process(nextThemeShortcut), () => {
         void setSetting('appearance.theme', theme === 'dark' ? 'light' : 'dark');
-    });
+    }, [theme, setSetting]);
     return <></>;
 }

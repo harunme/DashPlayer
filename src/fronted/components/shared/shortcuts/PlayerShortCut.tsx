@@ -81,20 +81,20 @@ export default function PlayerShortCut() {
         if (scrollState === 'USER_BROWSING') {
             onUserFinishScrolling();
         }
-    });
+    }, [onUserFinishScrolling, scrollState]);
     useHotkeys('right', () => {
         playerActions.nextSentence();
         if (scrollState === 'USER_BROWSING') {
             onUserFinishScrolling();
         }
-    });
+    }, [onUserFinishScrolling, scrollState]);
     useHotkeys('down', (e) => {
         e.preventDefault();
         playerActions.repeatCurrent({ loop: false });
         if (scrollState === 'USER_BROWSING') {
             onUserFinishScrolling();
         }
-    });
+    }, [onUserFinishScrolling, scrollState]);
     useHotkeys('space', (e) => {
         e.preventDefault();
         playerActions.togglePlay();
@@ -108,22 +108,22 @@ export default function PlayerShortCut() {
         if (scrollState === 'USER_BROWSING') {
             onUserFinishScrolling();
         }
-    });
+    }, [onUserFinishScrolling, scrollState]);
     useHotkeys(process(shortcuts.nextSentence), () => {
         playerActions.nextSentence();
         if (scrollState === 'USER_BROWSING') {
             onUserFinishScrolling();
         }
-    });
+    }, [onUserFinishScrolling, scrollState]);
     useHotkeys(process(shortcuts.repeatSentence), () => {
         playerActions.repeatCurrent({ loop: false });
         if (scrollState === 'USER_BROWSING') {
             onUserFinishScrolling();
         }
-    });
+    }, [onUserFinishScrolling, scrollState]);
     useHotkeys(process(shortcuts.playPause), playerActions.togglePlay.bind(playerActions));
-    useHotkeys(process(shortcuts.repeatSingleSentence), toggleSingleRepeat);
-    useHotkeys(process(shortcuts.autoPause), toggleAutoPause);
+    useHotkeys(process(shortcuts.repeatSingleSentence), toggleSingleRepeat, [toggleSingleRepeat]);
+    useHotkeys(process(shortcuts.autoPause), toggleAutoPause, [toggleAutoPause]);
     useHotkeys(process(shortcuts.toggleEnglishDisplay), changeShowEn);
     useHotkeys(process(shortcuts.toggleChineseDisplay), changeShowCn);
     useHotkeys(process(shortcuts.toggleBilingualDisplay), changeShowEnCn);
@@ -147,7 +147,7 @@ export default function PlayerShortCut() {
     useHotkeys(process(shortcuts.aiChat), () => {
         playerActions.pause();
         createFromCurrent();
-    });
+    }, [createFromCurrent]);
 
     useHotkeys(process(shortcuts.addClip), async () => {
         useFavouriteClip.getState().changeCurrentLineClip();

@@ -27,7 +27,7 @@ export default function ControlButton() {
 
     useHotkeys(process(openControlPanelShortcut), () => {
         changeSideBar(!showSideBar);
-    });
+    }, [changeSideBar, showSideBar]);
     return (
         <AnimatePresence>
             {!fullScreen && (
