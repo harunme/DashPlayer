@@ -26,6 +26,10 @@ const example = `
 00:20:00 Part 3
 `;
 
+/**
+ * 切分长视频页面。
+ * 负责组织左右两栏布局，并确保预览区在窄窗口下优先内部滚动，而不是把整页撑出屏幕。
+ */
 const Split = () => {
     const { t } = useI18nTranslation('pages');
     const {
@@ -72,10 +76,10 @@ const Split = () => {
 
             <div className={cn(
                 'flex-1 min-h-0 grid gap-6 px-6 py-5 overflow-hidden',
-                '[grid-template-columns:1fr_55%]'
+                '[grid-template-columns:minmax(0,1fr)_minmax(0,1.2fr)]'
             )}>
                 {/* Left Column: input + files + action buttons */}
-                <div className="flex flex-col gap-4 min-h-0">
+                <div className="flex min-w-0 flex-col gap-4 min-h-0">
                     <div className="flex flex-col gap-1.5 flex-1 min-h-0">
                         <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
                             {t('sentenceSplitter.inputLabel')}
@@ -156,10 +160,10 @@ const Split = () => {
                 </div>
 
                 {/* Right Column: tabs + split button */}
-                <div className="flex flex-col gap-3 min-h-0">
+                <div className="flex min-w-0 flex-col gap-3 min-h-0">
                     <Tabs
                         defaultValue="preview"
-                        className="flex flex-col flex-1 min-h-0"
+                        className="flex min-w-0 flex-col flex-1 min-h-0"
                     >
                         <TabsList className="grid w-full grid-cols-2 shrink-0">
                             <TabsTrigger value="preview">{t('sentenceSplitter.tabs.preview')}</TabsTrigger>
@@ -167,13 +171,13 @@ const Split = () => {
                         </TabsList>
                         <TabsContent
                             value="preview"
-                            className="flex-1 overflow-auto scrollbar-thin mt-2"
+                            className="mt-2 min-w-0 flex-1 overflow-auto scrollbar-thin"
                         >
                             <SplitPreview className="w-full" />
                         </TabsContent>
                         <TabsContent
                             value="quickSelect"
-                            className="flex-1 overflow-y-auto mt-2"
+                            className="mt-2 min-w-0 flex-1 overflow-y-auto"
                         >
                             <SplitFile />
                         </TabsContent>
@@ -191,7 +195,7 @@ const Split = () => {
                                     await toast.promise(runSplitAll(), {
                                         loading: t('sentenceSplitter.splitting'),
                                         success: t('sentenceSplitter.splitSuccess'),
-                                        error: (v) => v?.message ?? t('sentenceSplitter.splitFailed')
+                                        error: (v: unknown) => v instanceof Error ? v.message : t('sentenceSplitter.splitFailed')
                                     });
                                 } finally {
                                     setSpliting(false);
