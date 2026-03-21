@@ -16,7 +16,7 @@ import PlaybackLayout from '@/fronted/pages/player/components/srt-layout/Layout'
 import {SWR_KEY} from '@/fronted/lib/swr-util';
 import PathUtil from '@/common/utils/PathUtil';
 // removed old controller usage; player v2 actions used instead
-import { playerV2Actions } from '@/fronted/components/feature/player/player-v2';
+import { playerActions } from '@/fronted/components/feature/player/player';
 import StrUtil from '@/common/utils/str-util';
 import CollUtil from '@/common/utils/CollUtil';
 import MediaUtil from '@/common/utils/MediaUtil';
@@ -135,7 +135,7 @@ const PlayerWithControlsPage = () => {
             const videoPath = PathUtil.join(video.basePath, video.fileName);
             if (videoPath && vp !== videoPath) {
                 useFile.getState().updateFile(videoPath);
-                playerV2Actions.play();
+                playerActions.play();
             }
 
             setTimeout(() => {

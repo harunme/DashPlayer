@@ -2,7 +2,7 @@ import { ClipSrtLine } from '@/common/types/clipMeta';
 import { Sentence } from '@/common/types/SentenceC';
 
 /**
- * 将 ClipSrtLine 转换为 Sentence 格式，以便在 usePlayerV2 中使用
+ * 将 ClipSrtLine 转换为 Sentence 格式，以便在 usePlayer 中使用
  */
 export function convertClipSrtLinesToSentences(
   clipSrtLines: ClipSrtLine[],

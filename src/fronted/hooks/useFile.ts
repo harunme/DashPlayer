@@ -1,3 +1,6 @@
+/**
+ * 管理当前播放器绑定的视频、字幕和字幕哈希等文件上下文。
+ */
 import { create } from 'zustand';
 import { subscribeWithSelector } from 'zustand/middleware';
 import MediaUtil from '@/common/utils/MediaUtil';

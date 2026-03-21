@@ -1,6 +1,9 @@
+/**
+ * 负责把文件状态、字幕解析、播放历史和播放器 store 串起来。
+ */
 import { useCallback, useEffect, useRef } from 'react';
-import { playerV2Actions } from '@/fronted/components/feature/player/player-v2';
-import { usePlayerV2 } from '@/fronted/hooks/usePlayerV2';
+import { playerActions } from '@/fronted/components/feature/player/player';
+import { usePlayer } from '@/fronted/hooks/usePlayer';
 import useFile from '@/fronted/hooks/useFile';
 import StrUtil from '@/common/utils/str-util';
 import UrlUtil from '@/common/utils/UrlUtil';
@@ -10,19 +13,22 @@ import { backendClient } from '@/fronted/application/bootstrap/backendClient';
 import useTranslation from '@/fronted/hooks/useTranslation';
 
 const api = backendClient;
-const logger = getRendererLogger('usePlayerV2Bridge');
+const logger = getRendererLogger('usePlayerBridge');
 
 async function waitForPlayerDuration(timeoutMs = 1500): Promise<number> {
     const start = Date.now();
     while (Date.now() - start < timeoutMs) {
-        const d = usePlayerV2.getState().duration;
+        const d = usePlayer.getState().duration;
         if (d > 0) return d;
         await new Promise((r) => setTimeout(r, 50));
     }
-    return usePlayerV2.getState().duration;
+    return usePlayer.getState().duration;
 }
 
-export function usePlayerV2Bridge(navigate: (path: string) => void) {
+/**
+ * 绑定播放器所需的外部副作用，并返回页面层直接使用的桥接事件。
+ */
+export function usePlayerBridge(navigate: (path: string) => void) {
     const videoPath = useFile((s) => s.videoPath);
     const subtitlePath = useFile((s) => s.subtitlePath);
     const videoId = useFile((s) => s.videoId);
@@ -35,11 +41,11 @@ export function usePlayerV2Bridge(navigate: (path: string) => void) {
 
     useEffect(() => {
         if (StrUtil.isBlank(videoPath)) {
-            playerV2Actions.setSource(null);
+            playerActions.setSource(null);
             return;
         }
         const fileUrl = UrlUtil.toUrl(videoPath!);
-        playerV2Actions.setSource(fileUrl);
+        playerActions.setSource(fileUrl);
     }, [videoPath]);
 
     useEffect(() => {
@@ -48,7 +54,7 @@ export function usePlayerV2Bridge(navigate: (path: string) => void) {
             if (StrUtil.isBlank(subtitlePath)) {
                 useFile.setState({ srtHash: null });
                 useTranslation.getState().setActiveFileHash(null);
-                playerV2Actions.clearSubtitles();
+                playerActions.clearSubtitles();
                 return;
             }
             const currentPath = subtitlePath!;
@@ -62,10 +68,10 @@ export function usePlayerV2Bridge(navigate: (path: string) => void) {
                 if (!result) {
                     useFile.setState({ subtitlePath: null });
                     useTranslation.getState().setActiveFileHash(null);
-                    playerV2Actions.clearSubtitles();
+                    playerActions.clearSubtitles();
                     return;
                 }
-                playerV2Actions.loadSubtitles(result.sentences);
+                playerActions.loadSubtitles(result.sentences);
                 useFile.setState({ srtHash: result.fileHash });
                 useTranslation.getState().setActiveFileHash(result.fileHash);
             } catch (error) {
@@ -91,7 +97,7 @@ export function usePlayerV2Bridge(navigate: (path: string) => void) {
                     if (StrUtil.isNotBlank(file)) {
                         counter += 1;
                         if (counter % 5 === 0) {
-                            const playTime = usePlayerV2.getState().internal.exactPlayTime;
+                            const playTime = usePlayer.getState().internal.exactPlayTime;
                             await api.call('watch-history/progress/update', {
                                 file,
                                 currentPosition: playTime
@@ -131,8 +137,8 @@ export function usePlayerV2Bridge(navigate: (path: string) => void) {
                 await api.call('watch-history/progress/update', { file, currentPosition: 0 });
             }
 
-            playerV2Actions.seekTo({ time: resumeTime });
-            playerV2Actions.play();
+            playerActions.seekTo({ time: resumeTime });
+            playerActions.play();
             lastLoadedFileRef.current = file;
         } catch (error) {
             logger.error('failed to jump to history progress', { error: error instanceof Error ? error.message : String(error) });
@@ -142,7 +148,7 @@ export function usePlayerV2Bridge(navigate: (path: string) => void) {
 
     const handleAutoPlayNext = useCallback(async () => {
         const currentVideoId = useFile.getState().videoId;
-        const autoPlayNext = usePlayerV2.getState().autoPlayNext;
+        const autoPlayNext = usePlayer.getState().autoPlayNext;
         if (!autoPlayNext || !currentVideoId) {
             return;
         }

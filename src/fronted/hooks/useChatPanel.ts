@@ -1,8 +1,11 @@
+/**
+ * 管理播放器聊天面板的会话、消息流、分析结果和上下文操作。
+ */
 import { create } from 'zustand';
 import { subscribeWithSelector } from 'zustand/middleware';
 import UndoRedo from '@/common/utils/UndoRedo';
 import { engEqual, p } from '@/common/utils/Util';
-import { usePlayerV2 } from '@/fronted/hooks/usePlayerV2';
+import { usePlayer } from '@/fronted/hooks/usePlayer';
 import CustomMessage from '@/common/types/msg/interfaces/CustomMessage';
 import HumanTopicMessage from '@/common/types/msg/HumanTopicMessage';
 import HumanNormalMessage from '@/common/types/msg/HumanNormalMessage';
@@ -175,8 +178,8 @@ const useChatPanel = create(
             undoRedo.add(empty());
             const tt = new HumanTopicMessage(get().topic, text);
             const topic = { content: text };
-            const currentSentence = usePlayerV2.getState().currentSentence;
-            const sentences = usePlayerV2.getState().sentences;
+            const currentSentence = usePlayer.getState().currentSentence;
+            const sentences = usePlayer.getState().sentences;
             const subtitles = (() => {
                 if (!currentSentence) return [] as typeof sentences;
                 const idx = sentences.findIndex(s => s.index === currentSentence.index && s.fileHash === currentSentence.fileHash);
@@ -204,7 +207,7 @@ const useChatPanel = create(
         },
         createFromCurrent: async () => {
             undoRedo.add(copy(get()));
-            const ct = usePlayerV2.getState().currentSentence;
+            const ct = usePlayer.getState().currentSentence;
             if (!ct) return;
             const tt = new HumanTopicMessage(get().topic, ct.text ?? '');
             // const subtitleAround = usePlayerController.getState().getSubtitleAround(5).map(e => e.text);
@@ -224,9 +227,9 @@ const useChatPanel = create(
                     }
                 }
             };
-            const currentSentence = usePlayerV2.getState().currentSentence;
+            const currentSentence = usePlayer.getState().currentSentence;
             if (!currentSentence) return;
-            const sentences = usePlayerV2.getState().sentences;
+            const sentences = usePlayer.getState().sentences;
             const subtitles = (() => {
                 const idx = sentences.findIndex(s => s.index === currentSentence.index && s.fileHash === currentSentence.fileHash);
                 const left = Math.max(0, idx - 5);
@@ -508,8 +511,8 @@ const mergeAnalysisPartial = (
 };
 
 const getCurrentParagraphLines = (): string[] => {
-    const currentSentence = usePlayerV2.getState().currentSentence;
-    const sentences = usePlayerV2.getState().sentences;
+    const currentSentence = usePlayer.getState().currentSentence;
+    const sentences = usePlayer.getState().sentences;
     const subtitles = (() => {
         if (!currentSentence) return [] as typeof sentences;
         const idx = sentences.findIndex(s => s.index === currentSentence.index && s.fileHash === currentSentence.fileHash);
@@ -544,7 +547,7 @@ const extractTopic = (t: Topic): string => {
     if (t === 'offscreen') return 'offscreen';
     if (typeof t.content === 'string') return t.content;
     const content = t.content;
-    const subtitle = usePlayerV2.getState().sentences;
+    const subtitle = usePlayer.getState().sentences;
     const length = subtitle?.length ?? 0;
     if (length === 0 || content.start.sIndex > length || content.end.sIndex > length) {
         return 'extractTopic failed';

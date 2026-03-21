@@ -1,19 +1,35 @@
+/**
+ * 渲染实际的视频播放器，并负责把播放器事件同步回播放器 store。
+ */
 import React, { useEffect, useRef } from 'react';
 import ReactPlayer from 'react-player/file';
-import { usePlayerV2State } from '@/fronted/hooks/usePlayerV2State';
+import { usePlayerState } from '@/fronted/hooks/usePlayerState';
 import { shallow } from 'zustand/shallow';
 
-export interface PlayerEngineV2Props {
+/**
+ * 播放器引擎组件入参。
+ */
+export interface PlayerEngineProps {
+  /** ReactPlayer 进度回调间隔，单位毫秒。 */
   progressInterval?: number;
+  /** 播放器容器宽度。 */
   width?: string | number;
+  /** 播放器容器高度。 */
   height?: string | number;
+  /** 底层播放器准备完成后的回调。 */
   onReady?: () => void;
+  /** 媒体播放结束后的回调。 */
   onEnded?: () => void;
+  /** 向上层暴露内部 video 元素句柄。 */
   onProvideVideoElement?: (video: HTMLVideoElement | null) => void;
+  /** 透传给播放器容器的样式类名。 */
   className?: string;
 }
 
-const PlayerEngineV2: React.FC<PlayerEngineV2Props> = ({
+/**
+ * 承载底层媒体播放，并把播放进度、时长和视频元素句柄回传给上层。
+ */
+const PlayerEngine: React.FC<PlayerEngineProps> = ({
   progressInterval = 50,
   width = 0,
   height = 0,
@@ -32,7 +48,7 @@ const PlayerEngineV2: React.FC<PlayerEngineV2Props> = ({
     setDuration,
     updateExactPlayTime,
     play
-  } = usePlayerV2State((s) => ({
+  } = usePlayerState((s) => ({
     src: s.src,
     playing: s.playing,
     muted: s.muted,
@@ -129,4 +145,4 @@ const PlayerEngineV2: React.FC<PlayerEngineV2Props> = ({
   );
 };
 
-export default PlayerEngineV2;
+export default PlayerEngine;

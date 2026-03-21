@@ -1,4 +1,6 @@
-// src/fronted/playerV2/usePlayerV2.ts
+/**
+ * 管理播放器的核心状态、播放控制、字幕定位和句子级跳转能力。
+ */
 import { create } from 'zustand';
 import { Sentence } from '@/common/types/SentenceC';
 import { SrtTender, SrtTenderImpl } from '@/fronted/lib/SrtTender';
@@ -167,7 +169,7 @@ interface PlayerState {
 let timeOverrideTimer: ReturnType<typeof setTimeout> | null = null;
 let currentLockTimer: ReturnType<typeof setTimeout> | null = null;
 
-export const usePlayerV2 = create<PlayerState>((set, get) => {
+export const usePlayer = create<PlayerState>((set, get) => {
   // 工具：句子 key
   const sentenceKey = (s: Sentence) => `${(s as any).fileHash ?? 'nofile'}-${s.index}`;
 

@@ -1,3 +1,6 @@
+/**
+ * 将视频学习片段包装成便于按时间定位和渲染的 clip tender 能力。
+ */
 import { useMemo, useRef } from 'react';
 import { ClipSrtLine } from '@/common/types/clipMeta';
 import { ClipTenderImpl } from '@/fronted/lib/SrtTender';

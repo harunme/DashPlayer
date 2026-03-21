@@ -1,5 +1,7 @@
 'use client'
-
+/**
+ * 提供通用的剪贴板复制能力，并暴露短暂的“已复制”状态给界面使用。
+ */
 import * as React from 'react'
 
 export interface useCopyToClipboardProps {

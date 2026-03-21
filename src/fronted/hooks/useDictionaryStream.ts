@@ -1,3 +1,6 @@
+/**
+ * 管理词典流式查询过程，按 requestId 缓存中间结果和最终释义。
+ */
 import { create } from 'zustand';
 import { OpenAIDictionaryResult, OpenAIDictionaryDefinition, OpenAIDictionaryExample } from '@/common/types/YdRes';
 

@@ -6,8 +6,8 @@ import { useSubtitleScrollState } from '@/fronted/hooks/useSubtitleScroll';
 import useChatPanel from '@/fronted/hooks/useChatPanel';
 import useCopyModeController from '@/fronted/hooks/useCopyModeController';
 import useFavouriteClip from '@/fronted/hooks/useFavouriteClip';
-import { playerV2Actions } from '@/fronted/components/feature/player/player-v2';
-import { usePlayerV2 } from '@/fronted/hooks/usePlayerV2';
+import { playerActions } from '@/fronted/components/feature/player/player';
+import { usePlayer } from '@/fronted/hooks/usePlayer';
 import usePlayerUi from '@/fronted/hooks/usePlayerUi';
 
 const process = (values: string) => values
@@ -67,10 +67,10 @@ export default function PlayerShortCut() {
     })));
 
     const { enterCopyMode, exitCopyMode, isCopyMode } = useCopyModeController();
-    const setSingleRepeat = usePlayerV2((s) => s.setSingleRepeat);
-    const setAutoPause = usePlayerV2((s) => s.setAutoPause);
-    const singleRepeat = usePlayerV2((s) => s.singleRepeat);
-    const autoPause = usePlayerV2((s) => s.autoPause);
+    const setSingleRepeat = usePlayer((s) => s.setSingleRepeat);
+    const setAutoPause = usePlayer((s) => s.setAutoPause);
+    const singleRepeat = usePlayer((s) => s.singleRepeat);
+    const autoPause = usePlayer((s) => s.autoPause);
 
     const toggleSingleRepeat = () => {
         setSingleRepeat(!singleRepeat);
@@ -80,75 +80,75 @@ export default function PlayerShortCut() {
     };
 
     useHotkeys('left', () => {
-        playerV2Actions.prevSentence();
+        playerActions.prevSentence();
         if (scrollState === 'USER_BROWSING') {
             onUserFinishScrolling();
         }
     });
     useHotkeys('right', () => {
-        playerV2Actions.nextSentence();
+        playerActions.nextSentence();
         if (scrollState === 'USER_BROWSING') {
             onUserFinishScrolling();
         }
     });
     useHotkeys('down', (e) => {
         e.preventDefault();
-        playerV2Actions.repeatCurrent({ loop: false });
+        playerActions.repeatCurrent({ loop: false });
         if (scrollState === 'USER_BROWSING') {
             onUserFinishScrolling();
         }
     });
     useHotkeys('space', (e) => {
         e.preventDefault();
-        playerV2Actions.togglePlay();
+        playerActions.togglePlay();
     });
     useHotkeys('up', (e) => {
         e.preventDefault();
-        playerV2Actions.togglePlay();
+        playerActions.togglePlay();
     });
     useHotkeys(process(shortcuts.previousSentence), () => {
-        playerV2Actions.prevSentence();
+        playerActions.prevSentence();
         if (scrollState === 'USER_BROWSING') {
             onUserFinishScrolling();
         }
     });
     useHotkeys(process(shortcuts.nextSentence), () => {
-        playerV2Actions.nextSentence();
+        playerActions.nextSentence();
         if (scrollState === 'USER_BROWSING') {
             onUserFinishScrolling();
         }
     });
     useHotkeys(process(shortcuts.repeatSentence), () => {
-        playerV2Actions.repeatCurrent({ loop: false });
+        playerActions.repeatCurrent({ loop: false });
         if (scrollState === 'USER_BROWSING') {
             onUserFinishScrolling();
         }
     });
-    useHotkeys(process(shortcuts.playPause), playerV2Actions.togglePlay.bind(playerV2Actions));
+    useHotkeys(process(shortcuts.playPause), playerActions.togglePlay.bind(playerActions));
     useHotkeys(process(shortcuts.repeatSingleSentence), toggleSingleRepeat);
     useHotkeys(process(shortcuts.autoPause), toggleAutoPause);
     useHotkeys(process(shortcuts.toggleEnglishDisplay), changeShowEn);
     useHotkeys(process(shortcuts.toggleChineseDisplay), changeShowCn);
     useHotkeys(process(shortcuts.toggleBilingualDisplay), changeShowEnCn);
     useHotkeys(process(shortcuts.adjustBeginMinus), () => {
-        playerV2Actions.adjustCurrentBegin(-0.2);
+        playerActions.adjustCurrentBegin(-0.2);
     });
     useHotkeys(process(shortcuts.adjustBeginPlus), () => {
-        playerV2Actions.adjustCurrentBegin(0.2);
+        playerActions.adjustCurrentBegin(0.2);
     });
     useHotkeys(process(shortcuts.adjustEndMinus), () => {
-        playerV2Actions.adjustCurrentEnd(-0.2);
+        playerActions.adjustCurrentEnd(-0.2);
     });
     useHotkeys(process(shortcuts.adjustEndPlus), () => {
-        playerV2Actions.adjustCurrentEnd(0.2);
+        playerActions.adjustCurrentEnd(0.2);
     });
     useHotkeys(process(shortcuts.clearAdjust), () => {
-        void playerV2Actions.clearAdjust();
+        void playerActions.clearAdjust();
     });
     useHotkeys(process(shortcuts.toggleWordLevelDisplay), changeShowWordLevel);
-    useHotkeys(process(shortcuts.nextPlaybackRate), playerV2Actions.cyclePlaybackRate.bind(playerV2Actions));
+    useHotkeys(process(shortcuts.nextPlaybackRate), playerActions.cyclePlaybackRate.bind(playerActions));
     useHotkeys(process(shortcuts.aiChat), () => {
-        playerV2Actions.pause();
+        playerActions.pause();
         createFromCurrent();
     });
 

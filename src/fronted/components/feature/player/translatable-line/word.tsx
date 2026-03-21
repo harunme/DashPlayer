@@ -13,7 +13,7 @@ import { getRendererLogger } from '@/fronted/log/simple-logger';
 import Eb from '@/fronted/components/shared/common/Eb';
 import useVocabulary from '@/fronted/hooks/useVocabulary';
 import { useTransLineTheme } from './translatable-theme';
-import { usePlayerV2 } from '@/fronted/hooks/usePlayerV2';
+import { usePlayer } from '@/fronted/hooks/usePlayer';
 import useDictionaryStream, { createDictionaryRequestId } from '@/fronted/hooks/useDictionaryStream';
 import useSetting from '@/fronted/hooks/useSetting';
 import { backendClient } from '@/fronted/application/bootstrap/backendClient';
@@ -56,7 +56,7 @@ export const getBox = (ele: HTMLDivElement): Feature<Polygon> => {
 const Word = ({word, original, pop, requestPop, show, alwaysDark, classNames}: WordParam) => {
     const setCopyContent = useCopyModeController((s)=>s.setCopyContent);
     const isCopyMode = useCopyModeController((s)=>s.isCopyMode);
-    const pause = usePlayerV2((s) => s.pause);
+    const pause = usePlayer((s) => s.pause);
     const vocabularyStore = useVocabulary();
     const [hovered, setHovered] = useState(false);
     const [playLoading, setPlayLoading] = useState(false);

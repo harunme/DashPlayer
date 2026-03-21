@@ -1,6 +1,9 @@
+/**
+ * 管理播放器复制模式，负责暂停播放、记录待复制内容和退出时写入剪贴板。
+ */
 import { create } from 'zustand';
 import usePlayerToaster from './usePlayerToaster';
-import { usePlayerV2 } from '@/fronted/hooks/usePlayerV2';
+import { usePlayer } from '@/fronted/hooks/usePlayer';
 
 export type UseCopyModeState = {
     isCopyMode: boolean,
@@ -15,7 +18,7 @@ export type UseCopyModeActions = {
 };
 
 const Toaster = usePlayerToaster.getState();
-const { pause } = usePlayerV2.getState();
+const { pause } = usePlayer.getState();
 
 
 const useCopyModeController = create<UseCopyModeState & UseCopyModeActions>(
