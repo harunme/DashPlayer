@@ -69,7 +69,16 @@ const useTranslation = create(
         translations: new Map(),
         translationStatus: new Map(),
 
-        // 懒加载翻译 - 需要传入sentences数据来获取translationKey
+        /**
+         * 按当前句附近的窗口懒加载字幕翻译。
+         *
+         * 行为说明：
+         * - 仅当句子所属文件与当前激活字幕上下文一致时才会发请求，避免视频/字幕切换期间把旧副作用打到新上下文。
+         * - 请求发出前先把目标句状态置为 translating；若请求失败，再恢复为 untranslated。
+         *
+         * @param sentences 当前字幕列表。
+         * @param currentIndex 当前聚焦句索引。
+         */
         loadTranslationGroup: (sentences: Sentence[], currentIndex: number) => {
 
             if (!sentences || sentences.length === 0) {
@@ -80,6 +89,10 @@ const useTranslation = create(
             const fileHash = sentences[0]?.fileHash;
 
             if (!fileHash) {
+                return;
+            }
+
+            if (state.activeFileHash !== fileHash) {
                 return;
             }
 

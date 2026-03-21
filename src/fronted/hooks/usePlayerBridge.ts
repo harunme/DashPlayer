@@ -50,6 +50,13 @@ export function usePlayerBridge(navigate: (path: string) => void) {
 
     useEffect(() => {
         let cancelled = false;
+        /**
+         * 按当前字幕路径重建前端字幕上下文。
+         *
+         * 行为说明：
+         * - 切换字幕时先清空旧字幕与旧翻译上下文，避免旧句子继续触发懒加载副作用。
+         * - 新字幕解析成功后，先激活新的 fileHash，再加载字幕，确保依赖当前句子的副作用看到的是一致上下文。
+         */
         const loadSubtitles = async () => {
             if (StrUtil.isBlank(subtitlePath)) {
                 useFile.setState({ srtHash: null });
@@ -60,6 +67,7 @@ export function usePlayerBridge(navigate: (path: string) => void) {
             const currentPath = subtitlePath!;
             useFile.setState({ srtHash: null });
             useTranslation.getState().setActiveFileHash(null);
+            playerActions.clearSubtitles();
             try {
                 const result = await api.call('subtitle/srt/parse-to-sentences', currentPath);
                 if (cancelled || currentPath !== useFile.getState().subtitlePath) {
@@ -71,9 +79,9 @@ export function usePlayerBridge(navigate: (path: string) => void) {
                     playerActions.clearSubtitles();
                     return;
                 }
-                playerActions.loadSubtitles(result.sentences);
                 useFile.setState({ srtHash: result.fileHash });
                 useTranslation.getState().setActiveFileHash(result.fileHash);
+                playerActions.loadSubtitles(result.sentences);
             } catch (error) {
                 logger.error('failed to load subtitles', { error: error instanceof Error ? error.message : String(error) });
             }
