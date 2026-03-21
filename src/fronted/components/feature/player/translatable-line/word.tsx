@@ -252,10 +252,10 @@ const Word = ({word, original, pop, requestPop, show, alwaysDark, classNames}: W
     };
 
     return (
-        <span className={cn('inline-flex')}>
+        <span>
             <span
                 ref={eleRef}
-                className="rounded"
+                className="rounded cursor-pointer"
                 onMouseOver={() => {
                     setHovered(true);
                     pause();
@@ -267,36 +267,32 @@ const Word = ({word, original, pop, requestPop, show, alwaysDark, classNames}: W
                     }
                 }}
             >
-                {pop && hovered ? (
-                    <Eb>
-                        <WordPop
-                            word={word}
-                            translation={dictionaryResponse}
-                            ref={popperRef}
-                            hoverColor={alwaysDark ? 'bg-neutral-600' : theme.word.popReferenceBgClass}
-                            isLoading={isWordLoading || isRefreshing}
-                            openaiStreamingData={openaiDictionaryEnabled ? dictionaryEntry?.data : null}
-                            isStreaming={openaiDictionaryEnabled && !!dictionaryEntry && !dictionaryEntry.isComplete}
-                            onRefresh={handleRefresh}
-                        />
-                    </Eb>
-                ) : (
-                    <span
-                        className={cn(
-                            'rounded select-text',
-                            !show && ['text-transparent', Style.word_hover_bg],
-                            hoverBg,
-                            vocabCls,
-                            classNames?.word,
-                        )}
-                        onMouseLeave={() => {
-                            setHovered(false);
-                        }}
-                    >
-                        {word}
-                    </span>
-                )}
+                <span
+                    className={cn(
+                        'rounded select-text',
+                        !show && ['text-transparent', Style.word_hover_bg],
+                        hoverBg,
+                        hovered && pop && (alwaysDark ? 'bg-neutral-600' : theme.word.popReferenceBgClass),
+                        vocabCls,
+                        classNames?.word,
+                    )}
+                >
+                    {word}
+                </span>
             </span>
+            {pop && hovered ? (
+                <Eb>
+                    <WordPop
+                        translation={dictionaryResponse}
+                        referenceElement={eleRef.current}
+                        ref={popperRef}
+                        isLoading={isWordLoading || isRefreshing}
+                        openaiStreamingData={openaiDictionaryEnabled ? dictionaryEntry?.data : null}
+                        isStreaming={openaiDictionaryEnabled && !!dictionaryEntry && !dictionaryEntry.isComplete}
+                        onRefresh={handleRefresh}
+                    />
+                </Eb>
+            ) : null}
         </span>
     );
 };
