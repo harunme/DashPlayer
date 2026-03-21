@@ -12,17 +12,22 @@ import { backendClient } from '@/fronted/application/bootstrap/backendClient';
 // 每句话的翻译状态
 export type TranslationStatus = 'untranslated' | 'translating' | 'completed';
 
-// 翻译状态
+/**
+ * 字幕翻译状态仓库。
+ */
 export interface TranslationState {
-    // 翻译引擎
+    /** 当前启用的翻译引擎。 */
     engine: 'tencent' | 'openai' | 'none';
+    /** OpenAI 字幕模式。 */
     openAiMode: TranslationMode;
+    /** 当前激活字幕文件哈希。 */
     activeFileHash: string | null;
 
-    // 翻译缓存 - key为translationKey，value为翻译结果
+    /** 当前展示中的翻译文本；流式中间态也会写入这里。 */
     translations: Map<string, string>;
-
-    // 翻译状态 - key为translationKey，value为状态
+    /** 已完成并可作为失败回滚基线的翻译文本。 */
+    committedTranslations: Map<string, string>;
+    /** 当前翻译状态。 */
     translationStatus: Map<string, TranslationStatus>;
 }
 
@@ -67,6 +72,7 @@ const useTranslation = create(
         openAiMode: 'zh',
         activeFileHash: null,
         translations: new Map(),
+        committedTranslations: new Map(),
         translationStatus: new Map(),
 
         /**
@@ -225,14 +231,19 @@ const useTranslation = create(
                 }
                 const { key, translation, isComplete = true } = item;
                 const newTranslations = new Map(state.translations);
+                const newCommittedTranslations = new Map(state.committedTranslations);
                 const newStatus = new Map(state.translationStatus);
 
                 newTranslations.set(key, translation);
                 newStatus.set(key, isComplete ? 'completed' : 'translating');
+                if (isComplete) {
+                    newCommittedTranslations.set(key, translation);
+                }
 
                 return {
                     ...state,
                     translations: newTranslations,
+                    committedTranslations: newCommittedTranslations,
                     translationStatus: newStatus
                 };
             });
@@ -248,16 +259,21 @@ const useTranslation = create(
                 }
 
                 const newTranslations = new Map(state.translations);
+                const newCommittedTranslations = new Map(state.committedTranslations);
                 const newStatus = new Map(state.translationStatus);
 
                 filtered.forEach(({ key, translation, isComplete = true }) => {
                     newTranslations.set(key, translation);
                     newStatus.set(key, isComplete ? 'completed' : 'translating');
+                    if (isComplete) {
+                        newCommittedTranslations.set(key, translation);
+                    }
                 });
 
                 return {
                     ...state,
                     translations: newTranslations,
+                    committedTranslations: newCommittedTranslations,
                     translationStatus: newStatus
                 };
             });
@@ -270,15 +286,23 @@ const useTranslation = create(
                     return state;
                 }
 
+                const newTranslations = new Map(state.translations);
                 const newStatus = new Map(state.translationStatus);
                 failure.keys.forEach((key) => {
                     if (newStatus.get(key) === 'translating') {
+                        const committed = state.committedTranslations.get(key);
+                        if (committed !== undefined) {
+                            newTranslations.set(key, committed);
+                        } else {
+                            newTranslations.delete(key);
+                        }
                         newStatus.set(key, 'untranslated');
                     }
                 });
 
                 return {
                     ...state,
+                    translations: newTranslations,
                     translationStatus: newStatus
                 };
             });
@@ -289,6 +313,7 @@ const useTranslation = create(
             set({
                 activeFileHash: null,
                 translations: new Map(),
+                committedTranslations: new Map(),
                 translationStatus: new Map()
             });
         },
@@ -304,6 +329,7 @@ const useTranslation = create(
                     openAiMode: state.openAiMode,
                     activeFileHash: state.activeFileHash,
                     translations: new Map(),
+                    committedTranslations: new Map(),
                     translationStatus: new Map()
                 };
             });
@@ -321,6 +347,7 @@ const useTranslation = create(
                     openAiMode: mode,
                     activeFileHash: state.activeFileHash,
                     translations: shouldReset ? new Map() : state.translations,
+                    committedTranslations: shouldReset ? new Map() : state.committedTranslations,
                     translationStatus: shouldReset ? new Map() : state.translationStatus
                 };
             });
@@ -335,6 +362,7 @@ const useTranslation = create(
                     ...state,
                     activeFileHash: fileHash,
                     translations: new Map(),
+                    committedTranslations: new Map(),
                     translationStatus: new Map()
                 };
             });

@@ -36,5 +36,6 @@ Use module and focus-token filters to reduce noise during debugging. Set `DP_LOG
 - 遇到并发控制、限流、让步调度、锁顺序或重入相关需求时（例如 ffmpeg/ffprobe/whisper 任务并发、gpt/tts/tencent 请求限流、视频分析让步调度），先阅读 `docs/concurrency-kernel-usage.md`，按该文档的约定实现。
 - 禁止编写 fallback 逻辑来掩盖配置或数据问题（包括前端默认值兜底、静默回退、隐式纠偏）；一旦数据异常必须尽早失败并显式暴露问题。
 - 遇到问题必须优先做根因修复，不以“最小改动”作为决策依据；应消除问题源头及相关死代码，避免临时性补丁长期残留。
+- 作为 Agent 执行实现时，不要为了控制改动面而牺牲正确性；应优先选择从根源解决问题的方案，允许为此进行必要的重构，并主动删除因旧方案产生的遗留、兼容分支和无效代码。
 - 未明确要求编写或修改测试时，不要新增测试文件，也不要因默认流程补测试。
 - If you notice a potential new guideline worth adding to this file, ask before adding it.
