@@ -36,7 +36,7 @@ export class WhisperModelService {
     private async getWhisperModelPath(size: WhisperModelSize): Promise<string> {
         const modelsRoot = await this.getModelsRoot();
         const tag = size === 'large' ? 'large-v3' : 'base';
-        return this.storageDirectoryProvider.provideFile(path.join(modelsRoot, 'whisper', `ggml-${tag}.bin`));
+        return path.join(modelsRoot, 'whisper', `ggml-${tag}.bin`);
     }
 
     /**
@@ -46,7 +46,7 @@ export class WhisperModelService {
      */
     private async getVadModelPath(vadModel: WhisperVadModel): Promise<string> {
         const modelsRoot = await this.getModelsRoot();
-        return this.storageDirectoryProvider.provideFile(path.join(modelsRoot, 'whisper-vad', `ggml-${vadModel}.bin`));
+        return path.join(modelsRoot, 'whisper-vad', `ggml-${vadModel}.bin`);
     }
 
     public async getStatus(): Promise<WhisperModelStatusVO> {

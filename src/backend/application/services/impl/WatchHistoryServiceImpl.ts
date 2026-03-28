@@ -227,6 +227,7 @@ export default class WatchHistoryServiceImpl implements WatchHistoryService {
     }
 
     public async attachSrt(videoPath: string, srtPath: string | 'same'): Promise<void> {
+        await this.storageDirectoryProvider.ensureFileAccessPermission(videoPath);
         if (srtPath === 'same') {
             srtPath = path.join(path.dirname(videoPath), path.basename(videoPath, path.extname(videoPath)) + '.srt');
         }
@@ -238,6 +239,10 @@ export default class WatchHistoryServiceImpl implements WatchHistoryService {
         if (!record) {
             return null;
         }
+
+        await this.storageDirectoryProvider.ensureFileAccessPermission(
+            path.join(record.base_path, record.file_name),
+        );
 
         const html5CandidatePath = this.html5VariantPathFromRecord(record);
         if (!this.isHtml5VariantFileName(record.file_name) && fs.existsSync(html5CandidatePath)) {
@@ -523,6 +528,7 @@ export default class WatchHistoryServiceImpl implements WatchHistoryService {
 
     async suggestSrt(file: string): Promise<string[]> {
         file = this.preferHtml5VideoPath(file);
+        await this.storageDirectoryProvider.ensureFileAccessPermission(file);
         const folder = path.dirname(file);
         const files = await FileUtil.listFiles(folder);
         const srtInFolder = files.filter(file => MediaUtil.isSubtitle(file))
@@ -652,10 +658,16 @@ export default class WatchHistoryServiceImpl implements WatchHistoryService {
                         WatchHistoryType.DIRECTORY,
                     );
                     if (html5Record) {
+                        await this.storageDirectoryProvider.ensureFileAccessPermission(
+                            path.join(html5Record.base_path, html5Record.file_name),
+                        );
                         return await this.buildVoFromFile(html5Record);
                     }
                 }
             }
+            await this.storageDirectoryProvider.ensureFileAccessPermission(
+                path.join(primary.base_path, primary.file_name),
+            );
             return await this.buildVoFromFile(primary);
         }
 

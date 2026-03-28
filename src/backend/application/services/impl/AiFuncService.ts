@@ -75,9 +75,7 @@ export default class AiFuncService {
         const modelSize = this.settingsStore.get('whisper.modelSize') === 'large' ? 'large' : 'base';
         const modelTag = modelSize === 'large' ? 'large-v3' : 'base';
         const modelsRoot = await this.storageDirectoryProvider.provideDirectory(StorageDirectoryTarget.MODELS);
-        const modelPath = await this.storageDirectoryProvider.provideFile(
-            path.join(modelsRoot, 'whisper', `ggml-${modelTag}.bin`),
-        );
+        const modelPath = path.join(modelsRoot, 'whisper', `ggml-${modelTag}.bin`);
         const modelDownloaded = fs.existsSync(modelPath);
 
         let transcriptionService: TranscriptionService;

@@ -51,14 +51,17 @@ export default class StorageDirectoryProviderImpl implements StorageDirectoryPro
     }
 
     /**
-     * 提供指定文件路径。
+     * 确保指定文件路径具备访问权限。
+     *
+     * 使用约束：
+     * - 仅用于存储目录体系之外的外部文件访问场景；
+     * - 若文件位于 `provideDirectory(...)` 返回的目录体系内，应直接依赖目录方法，不要重复调用这里。
+     *
      * @param filePath 文件绝对路径。
-     * @returns 已确保所在文件夹可访问的文件路径。
      */
-    public async provideFile(filePath: string): Promise<string> {
+    public async ensureFileAccessPermission(filePath: string): Promise<void> {
         const resolvedFilePath = path.resolve(filePath);
         await this.ensureFileAccessible(resolvedFilePath);
-        return resolvedFilePath;
     }
 
     /**
