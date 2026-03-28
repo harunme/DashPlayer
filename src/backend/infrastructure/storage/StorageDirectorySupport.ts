@@ -54,11 +54,6 @@ export interface StorageAccessStatus {
 }
 
 /**
- * 恢复访问时允许用户选择的目标类型。
- */
-export type RecoverySelectionKind = 'file' | 'directory';
-
-/**
  * 解析外部存储根目录。
  * @param configuredPath 用户保存的原始路径。
  * @returns 带环境后缀的最终根目录。
@@ -136,31 +131,18 @@ export function getFileAccessStatus(filePath: string): StorageAccessStatus {
  * 判断用户选择是否能够覆盖目标路径的访问恢复。
  *
  * 规则说明：
- * - 目录目标允许选择目标目录自身，或包含它的上层文件夹；
- * - 文件目标允许选择文件自身，或包含它的上层文件夹。
+ * - 无论原目标是文件还是文件夹，恢复时都要求用户选择目标自身对应的文件夹，或包含它的上层文件夹。
  *
  * @param targetPath 原目标路径。
- * @param selectedPath 用户选择的路径。
- * @param selectedKind 用户选择的路径类型。
- * @param targetType 原目标类型。
+ * @param selectedDirectoryPath 用户选择的文件夹路径。
  * @returns 是否满足恢复访问的选择要求。
  */
 export function canRecoverAccessFromSelection(
     targetPath: string,
-    selectedPath: string,
-    selectedKind: RecoverySelectionKind,
-    targetType: StorageAccessTargetType,
+    selectedDirectoryPath: string,
 ): boolean {
     const normalizedTargetPath = path.resolve(targetPath);
-    const normalizedSelectedPath = path.resolve(selectedPath);
-
-    if (targetType === 'file' && selectedKind === 'file') {
-        return normalizedTargetPath === normalizedSelectedPath;
-    }
-
-    if (selectedKind !== 'directory') {
-        return false;
-    }
+    const normalizedSelectedPath = path.resolve(selectedDirectoryPath);
 
     return isSamePathOrAncestor(normalizedSelectedPath, normalizedTargetPath);
 }

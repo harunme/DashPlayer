@@ -1,12 +1,12 @@
-import { dialog } from 'electron';
-import { inject, injectable } from 'inversify';
+import {dialog} from 'electron';
+import {inject, injectable} from 'inversify';
 import fsSync from 'fs';
 import fs from 'fs/promises';
 import path from 'path';
 import StorageDirectoryProvider, {
     StorageDirectoryTarget,
 } from '@/backend/application/ports/gateways/storage/StorageDirectoryProvider';
-import { SettingsStore } from '@/backend/application/ports/gateways/SettingsStore';
+import {SettingsStore} from '@/backend/application/ports/gateways/SettingsStore';
 import TYPES from '@/backend/ioc/types';
 import {
     canRecoverAccessFromSelection,
@@ -14,23 +14,18 @@ import {
     getFileAccessStatus,
     getStorageRootStatus,
     resolveStorageDirectory,
-    StorageAccessStatus,
     StorageAccessTargetType,
 } from '@/backend/infrastructure/storage/StorageDirectorySupport';
-import { StorageStatusVO } from '@/common/types/vo/StorageStatusVO';
+import {StorageStatusVO} from '@/common/types/vo/StorageStatusVO';
 
 /**
  * 外部存储目录提供器实现。
  */
 @injectable()
 export default class StorageDirectoryProviderImpl implements StorageDirectoryProvider {
-    private static readonly RECOVER_DIRECTORY_DIALOG_TITLE = '请重新选择可访问的文件夹';
+    private static readonly RECOVER_ACCESS_DIALOG_TITLE = '请重新选择可访问的文件夹';
 
-    private static readonly RECOVER_DIRECTORY_DIALOG_MESSAGE = '当前文件夹暂时无法访问，请重新选择这个文件夹，或选择包含它的上层文件夹，以恢复访问权限';
-
-    private static readonly RECOVER_FILE_DIALOG_TITLE = '请重新选择可访问的文件或文件夹';
-
-    private static readonly RECOVER_FILE_DIALOG_MESSAGE = '当前文件暂时无法访问，请重新选择这个文件，或选择包含它的上层文件夹，以恢复访问权限';
+    private static readonly RECOVER_ACCESS_DIALOG_MESSAGE = '当前文件夹暂时无法访问，请重新选择这个文件夹，或选择包含它的上层文件夹，以恢复访问权限';
 
     private activeRecoveryDialog: Promise<void> | null = null;
 
@@ -51,17 +46,22 @@ export default class StorageDirectoryProviderImpl implements StorageDirectoryPro
     }
 
     /**
-     * 确保指定文件路径具备访问权限。
+     * 确保指定路径具备访问权限。
      *
      * 使用约束：
-     * - 仅用于存储目录体系之外的外部文件访问场景；
-     * - 若文件位于 `provideDirectory(...)` 返回的目录体系内，应直接依赖目录方法，不要重复调用这里。
+     * - 仅用于存储目录体系之外的外部路径访问场景；
+     * - 若路径位于 `provideDirectory(...)` 返回的目录体系内，应直接依赖目录方法，不要重复调用这里。
      *
-     * @param filePath 文件绝对路径。
+     * @param targetPath 外部文件或文件夹绝对路径。
      */
-    public async ensureFileAccessPermission(filePath: string): Promise<void> {
-        const resolvedFilePath = path.resolve(filePath);
-        await this.ensureFileAccessible(resolvedFilePath);
+    public async ensurePathAccessPermission(targetPath: string): Promise<void> {
+        const resolvedTargetPath = path.resolve(targetPath);
+        if (this.detectPathAccessTargetType(resolvedTargetPath) === 'directory') {
+            await this.ensureAccessibleWithRecovery(resolvedTargetPath);
+            return;
+        }
+
+        await this.ensureFileAccessible(resolvedTargetPath);
     }
 
     /**
@@ -87,10 +87,7 @@ export default class StorageDirectoryProviderImpl implements StorageDirectoryPro
             throw new Error(status.message);
         }
 
-        await this.ensureAccessibleWithRecovery({
-            targetPath: status.resolvedPath,
-            targetType: 'directory',
-        });
+        await this.ensureAccessibleWithRecovery(status.resolvedPath);
         return status.resolvedPath;
     }
 
@@ -119,10 +116,7 @@ export default class StorageDirectoryProviderImpl implements StorageDirectoryPro
         try {
             await fs.mkdir(resolvedDirectoryPath, { recursive: true });
         } catch {
-            await this.ensureAccessibleWithRecovery({
-                targetPath: resolvedDirectoryPath,
-                targetType: 'directory',
-            });
+            await this.ensureAccessibleWithRecovery(resolvedDirectoryPath);
             await fs.mkdir(resolvedDirectoryPath, { recursive: true });
         }
     }
@@ -138,10 +132,7 @@ export default class StorageDirectoryProviderImpl implements StorageDirectoryPro
         try {
             await fs.mkdir(parentDirectory, { recursive: true });
         } catch {
-            await this.ensureAccessibleWithRecovery({
-                targetPath: resolvedFilePath,
-                targetType: 'file',
-            });
+            await this.ensureAccessibleWithRecovery(resolvedFilePath);
             await fs.mkdir(parentDirectory, { recursive: true });
             return;
         }
@@ -155,10 +146,7 @@ export default class StorageDirectoryProviderImpl implements StorageDirectoryPro
             throw new Error(status.message);
         }
 
-        await this.ensureAccessibleWithRecovery({
-            targetPath: resolvedFilePath,
-            targetType: 'file',
-        });
+        await this.ensureAccessibleWithRecovery(resolvedFilePath);
     }
 
     /**
@@ -169,21 +157,22 @@ export default class StorageDirectoryProviderImpl implements StorageDirectoryPro
      * - 只有目标仍不可访问时，当前请求才会发起新的弹窗；
      * - 同一时刻仅保留一个恢复弹窗。
      *
-     * @param request 访问恢复请求。
+     * @param targetPath 触发恢复的原始路径，可以是文件也可以是文件夹。
      */
-    private async ensureAccessibleWithRecovery(request: {
-        targetPath: string;
-        targetType: StorageAccessTargetType;
-    }): Promise<void> {
+    private async ensureAccessibleWithRecovery(targetPath: string): Promise<void> {
+        const resolvedTargetPath = path.resolve(targetPath);
+        const recoveryDirectoryPath = this.detectPathAccessTargetType(resolvedTargetPath) === 'directory'
+            ? resolvedTargetPath
+            : path.dirname(resolvedTargetPath);
         let needsRecheck = true;
         while (needsRecheck) {
-            const status = this.getAccessStatus(request.targetPath, request.targetType);
+            const status = getDirectoryAccessStatus(recoveryDirectoryPath);
             if (status.available) {
                 needsRecheck = false;
                 continue;
             }
 
-            if (status.code === 'not_directory' || status.code === 'not_file') {
+            if (status.code === 'not_directory') {
                 throw new Error(status.message);
             }
 
@@ -192,7 +181,7 @@ export default class StorageDirectoryProviderImpl implements StorageDirectoryPro
                 continue;
             }
 
-            await this.openRecoveryDialog(request, status);
+            await this.openRecoveryDialog(recoveryDirectoryPath);
         }
     }
 
@@ -209,14 +198,10 @@ export default class StorageDirectoryProviderImpl implements StorageDirectoryPro
 
     /**
      * 打开恢复访问弹窗，并在关闭后完成状态收尾。
-     * @param request 当前恢复请求。
-     * @param status 当前访问状态。
+     * @param directoryPath 待恢复访问的文件夹路径。
      */
-    private async openRecoveryDialog(
-        request: { targetPath: string; targetType: StorageAccessTargetType },
-        status: StorageAccessStatus,
-    ): Promise<void> {
-        const dialogTask = this.performRecoveryDialog(request, status);
+    private async openRecoveryDialog(directoryPath: string): Promise<void> {
+        const dialogTask = this.performRecoveryDialog(directoryPath);
         const dialogTaskWithCleanup = dialogTask.finally(() => {
             if (this.activeRecoveryDialog === dialogTaskWithCleanup) {
                 this.activeRecoveryDialog = null;
@@ -228,66 +213,56 @@ export default class StorageDirectoryProviderImpl implements StorageDirectoryPro
 
     /**
      * 执行一次恢复访问弹窗。
-     * @param request 当前恢复请求。
-     * @param status 当前访问状态。
+     * @param directoryPath 待恢复访问的文件夹路径。
      */
-    private async performRecoveryDialog(
-        request: { targetPath: string; targetType: StorageAccessTargetType },
-        status: StorageAccessStatus,
-    ): Promise<void> {
+    private async performRecoveryDialog(directoryPath: string): Promise<void> {
         const result = await dialog.showOpenDialog({
-            title: request.targetType === 'file'
-                ? StorageDirectoryProviderImpl.RECOVER_FILE_DIALOG_TITLE
-                : StorageDirectoryProviderImpl.RECOVER_DIRECTORY_DIALOG_TITLE,
-            message: request.targetType === 'file'
-                ? StorageDirectoryProviderImpl.RECOVER_FILE_DIALOG_MESSAGE
-                : StorageDirectoryProviderImpl.RECOVER_DIRECTORY_DIALOG_MESSAGE,
-            defaultPath: status.targetType === 'file' && !status.exists
-                ? path.dirname(status.targetPath)
-                : status.targetPath,
-            properties: request.targetType === 'file'
-                ? ['openFile', 'openDirectory']
-                : ['openDirectory'],
+            title: StorageDirectoryProviderImpl.RECOVER_ACCESS_DIALOG_TITLE,
+            message: StorageDirectoryProviderImpl.RECOVER_ACCESS_DIALOG_MESSAGE,
+            defaultPath: directoryPath,
+            properties: ['openDirectory'],
         });
 
         if (result.canceled || result.filePaths.length === 0) {
-            throw new Error(status.message);
+            throw new Error(StorageDirectoryProviderImpl.RECOVER_ACCESS_DIALOG_MESSAGE);
         }
 
         const selectedPath = path.resolve(result.filePaths[0]);
-        const selectedKind = this.getSelectedPathKind(selectedPath);
 
-        if (!canRecoverAccessFromSelection(request.targetPath, selectedPath, selectedKind, request.targetType)) {
-            throw new Error(request.targetType === 'file'
-                ? StorageDirectoryProviderImpl.RECOVER_FILE_DIALOG_MESSAGE
-                : StorageDirectoryProviderImpl.RECOVER_DIRECTORY_DIALOG_MESSAGE);
+        if (!canRecoverAccessFromSelection(directoryPath, selectedPath)) {
+            throw new Error(StorageDirectoryProviderImpl.RECOVER_ACCESS_DIALOG_MESSAGE);
         }
 
-        const recoveredStatus = this.getAccessStatus(request.targetPath, request.targetType);
+        const recoveredStatus = getDirectoryAccessStatus(directoryPath);
         if (!recoveredStatus.available) {
             throw new Error(recoveredStatus.message);
         }
     }
 
     /**
-     * 获取当前目标访问状态。
+     * 识别路径当前应按文件还是文件夹处理。
+     *
+     * 说明：
+     * - 已存在目录按文件夹处理；
+     * - 已存在文件按文件处理；
+     * - 路径尚不存在时，按文件处理，便于恢复其所属位置的访问权限。
+     *
      * @param targetPath 目标路径。
-     * @param targetType 目标类型。
-     * @returns 当前访问状态。
+     * @returns 当前路径访问目标类型。
      */
-    private getAccessStatus(targetPath: string, targetType: StorageAccessTargetType): StorageAccessStatus {
-        return targetType === 'file'
-            ? getFileAccessStatus(targetPath)
-            : getDirectoryAccessStatus(targetPath);
-    }
+    private detectPathAccessTargetType(targetPath: string): StorageAccessTargetType {
+        try {
+            const stat = fsSync.statSync(targetPath);
+            if (stat.isDirectory()) {
+                return 'directory';
+            }
+            if (stat.isFile()) {
+                return 'file';
+            }
+        } catch {
+            return 'file';
+        }
 
-    /**
-     * 识别用户当前选择的是文件还是文件夹。
-     * @param selectedPath 用户选择路径。
-     * @returns 选择路径类型。
-     */
-    private getSelectedPathKind(selectedPath: string): 'file' | 'directory' {
-        const stat = fsSync.statSync(selectedPath);
-        return stat.isDirectory() ? 'directory' : 'file';
+        throw new Error(`不支持的路径类型：${targetPath}`);
     }
 }

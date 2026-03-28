@@ -195,7 +195,7 @@ class WhisperServiceImpl implements WhisperService {
      * 删除指定目录下的所有文件，然后利用 ffmpeg 执行分割音频操作并生成 chunks
      */
     async convertAndSplit(taskId: number, context: WhisperContext): Promise<void> {
-        const filesInFolder = await FileUtil.listFiles(context.folder);
+        const filesInFolder = await fs.promises.readdir(context.folder);
         for (const file of filesInFolder) {
             try {
                 fs.unlinkSync(path.join(context.folder, file));

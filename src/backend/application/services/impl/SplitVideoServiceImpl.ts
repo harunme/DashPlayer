@@ -12,6 +12,7 @@ import FfmpegService from '@/backend/application/services/FfmpegService';
 import TYPES from '@/backend/ioc/types';
 import SplitVideoService from '@/backend/application/services/SplitVideoService';
 import SrtUtil from "@/common/utils/SrtUtil";
+import StorageDirectoryProvider from '@/backend/application/ports/gateways/storage/StorageDirectoryProvider';
 
 
 
@@ -20,6 +21,8 @@ class SplitVideoServiceImpl implements SplitVideoService {
 
     @inject(TYPES.FfmpegService)
     private ffmpegService!: FfmpegService;
+    @inject(TYPES.StorageDirectoryProvider)
+    private storageDirectoryProvider!: StorageDirectoryProvider;
     private logger = getMainLogger('SplitVideoServiceImpl');
 
     public async previewSplit(str: string) {
@@ -60,6 +63,7 @@ class SplitVideoServiceImpl implements SplitVideoService {
             offset += duration;
         }
 
+        await this.storageDirectoryProvider.ensurePathAccessPermission(srtPath);
         const content = await FileUtil.read(srtPath);
         if (content === null) {
             this.logger.error('read srt file failed');

@@ -34,16 +34,15 @@ export default interface StorageDirectoryProvider {
     provideDirectory(target: StorageDirectoryTarget): Promise<string>;
 
     /**
-     * 确保指定文件路径具备访问权限。
+     * 确保指定路径具备访问权限。
      *
      * 行为说明：
-     * - 仅用于存储目录体系之外的外部文件访问场景，例如播放历史中的外部视频；
-     * - 存储目录体系内部的文件在 `provideDirectory(...)` 获取过权限了，不需要调用此方法重复做权限校验；
-     * - 会校验文件本身或其所在文件夹当前是否具备访问权限；
-     * - 会在需要时引导用户恢复访问权限；
-     * - 返回前确保文件所在文件夹已存在。
+     * - 支持外部文件与外部文件夹两类路径；
+     * - 仅用于存储目录体系之外的外部路径访问场景；
+     * - 存储目录体系内部的目录应优先通过 `provideDirectory(...)` 获取，不要调用此方法重复做权限校验；
+     * - 会在需要时引导用户恢复访问权限。
      *
-     * @param filePath 文件绝对路径。
+     * @param targetPath 外部文件或文件夹绝对路径。
      */
-    ensureFileAccessPermission(filePath: string): Promise<void>;
+    ensurePathAccessPermission(targetPath: string): Promise<void>;
 }

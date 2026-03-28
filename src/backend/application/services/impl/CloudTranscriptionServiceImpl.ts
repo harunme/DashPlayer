@@ -219,7 +219,7 @@ export class CloudTranscriptionServiceImpl implements TranscriptionService {
      * 删除指定目录下的所有文件，然后利用 ffmpeg 执行分割音频操作并生成 chunks
      */
     private async convertAndSplit(context: WhisperContext, filePath: string): Promise<void> {
-        const filesInFolder = await FileUtil.listFiles(context.folder);
+        const filesInFolder = await fs.promises.readdir(context.folder);
         for (const file of filesInFolder) {
             try {
                 fs.unlinkSync(path.join(context.folder, file));

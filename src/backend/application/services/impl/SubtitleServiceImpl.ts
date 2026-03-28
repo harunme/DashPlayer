@@ -16,6 +16,7 @@ import { ObjUtil } from '@/backend/utils/ObjUtil';
 import SrtUtil, {SrtLine} from "@/common/utils/SrtUtil";
 import {WordMatchService} from '@/backend/application/services/WordMatchService';
 import RendererGateway from '@/backend/application/ports/gateways/renderer/RendererGateway';
+import StorageDirectoryProvider from '@/backend/application/ports/gateways/storage/StorageDirectoryProvider';
 
 /**
  * 生成稳定句子翻译键。
@@ -64,11 +65,14 @@ export class SubtitleServiceImpl implements SubtitleService {
     private wordMatchService!: WordMatchService;
     @inject(TYPES.RendererGateway)
     private rendererGateway!: RendererGateway;
+    @inject(TYPES.StorageDirectoryProvider)
+    private storageDirectoryProvider!: StorageDirectoryProvider;
 
     public async parseSrt(path: string): Promise<SrtSentence> {
         if (!fs.existsSync(path)) {
             throw new Error('file not exists');
         }
+        await this.storageDirectoryProvider.ensurePathAccessPermission(path);
         const content = await FileUtil.read(path);
         TypeGuards.assertNotNull(content, 'read file error');
         const hashKey = ObjUtil.hash(content);
