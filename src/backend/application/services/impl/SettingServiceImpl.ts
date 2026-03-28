@@ -158,7 +158,9 @@ export default class SettingServiceImpl implements SettingService {
         const modelSize = this.getValue('whisper.modelSize') === 'large' ? 'large' : 'base';
         const modelTag = modelSize === 'large' ? 'large-v3' : 'base';
         const modelsRoot = await this.storageDirectoryProvider.provideDirectory(StorageDirectoryTarget.MODELS);
-        const modelPath = path.join(modelsRoot, 'whisper', `ggml-${modelTag}.bin`);
+        const modelPath = await this.storageDirectoryProvider.provideFile(
+            path.join(modelsRoot, 'whisper', `ggml-${modelTag}.bin`),
+        );
         return { modelSize, modelPath };
     }
 

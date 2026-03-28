@@ -32,4 +32,17 @@ export default interface StorageDirectoryProvider {
      * @returns 可直接读写的绝对目录路径。
      */
     provideDirectory(target: StorageDirectoryTarget): Promise<string>;
+
+    /**
+     * 提供指定文件对应的可访问路径。
+     *
+     * 行为说明：
+     * - 会校验文件本身或其所在文件夹当前是否可访问；
+     * - 会在需要时引导用户恢复访问权限；
+     * - 返回前确保文件所在文件夹已存在。
+     *
+     * @param filePath 文件绝对路径。
+     * @returns 可直接访问的文件绝对路径。
+     */
+    provideFile(filePath: string): Promise<string>;
 }
