@@ -3,16 +3,19 @@ import registerRoute from '@/backend/adapters/ipc/registerRoute';
 import Controller from '@/backend/adapters/controllers/Controller';
 import { inject, injectable } from 'inversify';
 import TYPES from '@/backend/ioc/types';
-import LocationService from '@/backend/application/services/LocationService';
 import FileUtil from '@/backend/utils/FileUtil';
 import { getMainLogger } from '@/backend/infrastructure/logger';
 import SettingsKeyValueService from '@/backend/application/services/impl/SettingsKeyValueService';
 import { StorageStatusVO } from '@/common/types/vo/StorageStatusVO';
+import StorageDirectoryProvider, {
+    StorageDirectoryTarget,
+} from '@/backend/application/ports/gateways/storage/StorageDirectoryProvider';
+import { getStorageRootStatus } from '@/backend/infrastructure/storage/StorageDirectorySupport';
 
 @injectable()
 export default class StorageController implements Controller {
     @inject(TYPES.SettingsKeyValueService) private settingsKeyValueService!: SettingsKeyValueService;
-    @inject(TYPES.LocationService) private locationService!: LocationService;
+    @inject(TYPES.StorageDirectoryProvider) private storageDirectoryProvider!: StorageDirectoryProvider;
     private logger = getMainLogger('StorageController');
 
     /**
@@ -41,8 +44,8 @@ export default class StorageController implements Controller {
      * - 目录失效时直接抛出显式错误，避免误报为 0 KB。
      */
     public async queryCacheSize(): Promise<string> {
-        this.locationService.assertLibraryAccessible();
-        return await FileUtil.calculateReadableFolderSize(this.locationService.getBaseLibraryPath());
+        const libraryRoot = await this.storageDirectoryProvider.provideDirectory(StorageDirectoryTarget.LIBRARY_ROOT);
+        return await FileUtil.calculateReadableFolderSize(libraryRoot);
     }
 
     /**
@@ -50,7 +53,7 @@ export default class StorageController implements Controller {
      * @returns 可供设置页直接展示的状态信息。
      */
     public async queryStorageStatus(): Promise<StorageStatusVO> {
-        return this.locationService.getLibraryStatus();
+        return getStorageRootStatus(await this.settingsKeyValueService.get('storage.path'));
     }
 
     /**
@@ -58,7 +61,7 @@ export default class StorageController implements Controller {
      * @returns 当前支持的集合列表。
      */
     public async listCollectionPaths(): Promise<string[]> {
-        return this.locationService.listCollectionPaths();
+        return ['default'];
     }
 
 

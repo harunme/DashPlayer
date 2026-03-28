@@ -5,7 +5,6 @@ import { inject, injectable } from 'inversify';
 import { TranscriptionService } from '../TranscriptionService';
 import TYPES from '@/backend/ioc/types';
 import FfmpegService from '@/backend/application/services/FfmpegService';
-import LocationService, { LocationType } from '@/backend/application/services/LocationService';
 import { getMainLogger } from '@/backend/infrastructure/logger';
 import { OpenAiWhisper } from '@/backend/application/ports/gateways/OpenAiWhisper';
 import { WithSemaphore } from '@/backend/application/kernel/concurrency/decorators';
@@ -15,6 +14,9 @@ import FileUtil from '@/backend/utils/FileUtil';
 import { CancelByUserError, WhisperResponseFormatError } from '@/backend/application/errors/errors';
 import SrtUtil from '@/common/utils/SrtUtil';
 import RendererGateway from '@/backend/application/ports/gateways/renderer/RendererGateway';
+import StorageDirectoryProvider, {
+    StorageDirectoryTarget,
+} from '@/backend/application/ports/gateways/storage/StorageDirectoryProvider';
 
 // 设置过期时间阈值，单位毫秒（此处示例为 3 小时）
 const EXPIRATION_THRESHOLD = 3 * 60 * 60 * 1000;
@@ -28,8 +30,8 @@ export class CloudTranscriptionServiceImpl implements TranscriptionService {
     @inject(TYPES.FfmpegService)
     private ffmpegService!: FfmpegService;
 
-    @inject(TYPES.LocationService)
-    private locationService!: LocationService;
+    @inject(TYPES.StorageDirectoryProvider)
+    private storageDirectoryProvider!: StorageDirectoryProvider;
 
     @inject(TYPES.OpenAiWhisper)
     private openAiWhisperGateway!: OpenAiWhisper;
@@ -63,7 +65,7 @@ export class CloudTranscriptionServiceImpl implements TranscriptionService {
             this.sendProgress(0, filePath, 'processing', 10);
 
             // 分配用于储存中间产生的文件夹
-            const folder = this.allocateFolder(filePath);
+            const folder = await this.allocateFolder(filePath);
 
             // 初始化默认的上下文
             const defaultContext: WhisperContext = {
@@ -168,7 +170,7 @@ export class CloudTranscriptionServiceImpl implements TranscriptionService {
             this.currentFilePath = null;
             this.cancelRequested = false;
         }
-        this.cleanExpiredFolders();
+        void this.cleanExpiredFolders();
     }
 
     public cancel(filePath: string): boolean {
@@ -248,9 +250,15 @@ export class CloudTranscriptionServiceImpl implements TranscriptionService {
     /**
      * 为指定文件分配一个存放临时文件的文件夹（文件夹名称基于文件路径的 hash 值）
      */
-    private allocateFolder(filePath: string): string {
+    /**
+     * 为指定文件分配临时工作目录。
+     * @param filePath 输入文件路径。
+     * @returns 已确保存在的临时目录。
+     */
+    private async allocateFolder(filePath: string): Promise<string> {
         const folderName = hash(filePath);
-        const tempDir = path.join(this.locationService.getDetailLibraryPath(LocationType.TEMP), 'whisper', folderName);
+        const tempRoot = await this.storageDirectoryProvider.provideDirectory(StorageDirectoryTarget.TEMP);
+        const tempDir = path.join(tempRoot, 'whisper', folderName);
         if (!fs.existsSync(tempDir)) {
             fs.mkdirSync(tempDir, { recursive: true });
         }
@@ -260,12 +268,13 @@ export class CloudTranscriptionServiceImpl implements TranscriptionService {
     /**
      * 扫描 whisper 的临时目录，删除超过有效期的目录
      */
-    private cleanExpiredFolders(): void {
+    /**
+     * 清理过期的云转录临时目录。
+     */
+    private async cleanExpiredFolders(): Promise<void> {
         try {
-            const whisperBaseDir = path.join(
-                this.locationService.getDetailLibraryPath(LocationType.TEMP),
-                'whisper'
-            );
+            const tempRoot = await this.storageDirectoryProvider.provideDirectory(StorageDirectoryTarget.TEMP);
+            const whisperBaseDir = path.join(tempRoot, 'whisper');
             if (!fs.existsSync(whisperBaseDir)) return;
             const folders = fs.readdirSync(whisperBaseDir);
             for (const folderName of folders) {

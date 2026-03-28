@@ -21,7 +21,6 @@ import { getMainLogger } from '@/backend/infrastructure/logger';
 import { ClipQuery, SimpleClipQuery } from '@/common/api/dto';
 import { VideoLearningService } from '@/backend/application/services/VideoLearningService';
 import CacheService from '@/backend/application/services/CacheService';
-import LocationService, { LocationType } from '@/backend/application/services/LocationService';
 import { ClipOssService } from '@/backend/application/services/OssService';
 import FfmpegService from '@/backend/application/services/FfmpegService';
 import RendererGateway from '@/backend/application/ports/gateways/renderer/RendererGateway';
@@ -33,6 +32,9 @@ import { GlobalVideoLearningClipQueueStatusVO, VideoLearningClipStatusVO } from 
 import { WordMatchService, MatchedWord } from '@/backend/application/services/WordMatchService';
 import { SrtSentence } from '@/common/types/SentenceC';
 import { concurrency } from '@/backend/application/kernel/concurrency';
+import StorageDirectoryProvider, {
+    StorageDirectoryTarget,
+} from '@/backend/application/ports/gateways/storage/StorageDirectoryProvider';
 
 type SrtCache = SrtSentence;
 
@@ -61,8 +63,8 @@ export default class VideoLearningServiceImpl implements VideoLearningService {
     @inject(TYPES.CacheService)
     private cacheService!: CacheService;
 
-    @inject(TYPES.LocationService)
-    private locationService!: LocationService;
+    @inject(TYPES.StorageDirectoryProvider)
+    private storageDirectoryProvider!: StorageDirectoryProvider;
 
     @inject(TYPES.FfmpegService)
     private ffmpegService!: FfmpegService;
@@ -360,10 +362,7 @@ export default class VideoLearningServiceImpl implements VideoLearningService {
         const metaData = this.mapToMetaData(task.videoPath, srt, task.indexInSrt);
         const key = task.clipKey;
 
-        const folder = this.locationService.getDetailLibraryPath(LocationType.TEMP);
-        if (!fs.existsSync(folder)) {
-            fs.mkdirSync(folder, { recursive: true });
-        }
+        const folder = await this.storageDirectoryProvider.provideDirectory(StorageDirectoryTarget.TEMP);
         const tempName = path.join(folder, key + '.mp4');
 
         if (await this.clipInDb(key)) {

@@ -6,14 +6,16 @@ import { Tag } from '@/backend/infrastructure/db/tables/tag';
 import { ClipQuery } from '@/common/api/dto';
 import { FavouriteClipsService } from '@/backend/application/services/FavouriteClipsService';
 import { ClipMeta, OssBaseMeta } from '@/common/types/clipMeta';
-import LocationService from '@/backend/application/services/LocationService';
+import StorageDirectoryProvider, {
+    StorageDirectoryTarget,
+} from '@/backend/application/ports/gateways/storage/StorageDirectoryProvider';
 
 @injectable()
 export default class FavoriteClipsController implements Controller {
     @inject(TYPES.FavouriteClips)
     private favouriteClipsService!: FavouriteClipsService;
-    @inject(TYPES.LocationService)
-    private locationService!: LocationService;
+    @inject(TYPES.StorageDirectoryProvider)
+    private storageDirectoryProvider!: StorageDirectoryProvider;
 
     public async addClip({ videoPath, srtKey, indexInSrt }: {
         videoPath: string,
@@ -66,7 +68,7 @@ export default class FavoriteClipsController implements Controller {
      * - 目录异常时直接抛错，避免静默清空数据库后又无法恢复。
      */
     public async syncFromOss(): Promise<void> {
-        this.locationService.assertLibraryAccessible();
+        await this.storageDirectoryProvider.provideDirectory(StorageDirectoryTarget.FAVORITE_CLIPS_COLLECTION);
         return this.favouriteClipsService.syncFromOss();
     }
 

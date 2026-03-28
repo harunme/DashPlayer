@@ -11,13 +11,12 @@ import {
 } from '@/common/types/vo/service-credentials-setting-vo';
 import { EngineSelectionSettingVO } from '@/common/types/vo/engine-selection-setting-vo';
 import { ShortcutSettingDetailVO, ShortcutSettingSaveVO } from '@/common/types/vo/shortcut-setting-vo';
-import LocationService from '@/backend/application/services/LocationService';
+import { getStorageRootStatus } from '@/backend/infrastructure/storage/StorageDirectorySupport';
 
 @injectable()
 export default class SettingsController implements Controller {
     @inject(TYPES.SettingService) private settingService!: SettingService;
     @inject(TYPES.SettingsKeyValueService) private settingsKeyValueService!: SettingsKeyValueService;
-    @inject(TYPES.LocationService) private locationService!: LocationService;
     private logger = getMainLogger('SettingsController');
 
     /**
@@ -140,7 +139,10 @@ export default class SettingsController implements Controller {
     public async updateStorageSettings(params: { path: string; collection: string }): Promise<void> {
         const nextPath = params.path.trim();
         if (nextPath.length > 0) {
-            this.locationService.assertLibraryAccessible(nextPath);
+            const status = getStorageRootStatus(nextPath);
+            if (!status.available) {
+                throw new Error(status.message);
+            }
         }
         await this.settingsKeyValueService.set('storage.path', params.path);
         await this.settingsKeyValueService.set('storage.collection', 'default');

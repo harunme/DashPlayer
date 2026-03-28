@@ -1,5 +1,4 @@
 import { inject, injectable, postConstruct } from 'inversify';
-import LocationService, { LocationType } from '@/backend/application/services/LocationService';
 import TYPES from '@/backend/ioc/types';
 import { WatchHistory, WatchHistoryType } from '@/backend/infrastructure/db/tables/watchHistory';
 import { ObjUtil } from '@/backend/utils/ObjUtil';
@@ -16,12 +15,15 @@ import MediaUtil from '@/common/utils/MediaUtil';
 import FileUtil from '@/backend/utils/FileUtil';
 import WatchHistoryRepository from '@/backend/application/ports/repositories/WatchHistoryRepository';
 import RendererGateway from '@/backend/application/ports/gateways/renderer/RendererGateway';
+import StorageDirectoryProvider, {
+    StorageDirectoryTarget,
+} from '@/backend/application/ports/gateways/storage/StorageDirectoryProvider';
 
 
 @injectable()
 export default class WatchHistoryServiceImpl implements WatchHistoryService {
-    @inject(TYPES.LocationService)
-    private locationService!: LocationService;
+    @inject(TYPES.StorageDirectoryProvider)
+    private storageDirectoryProvider!: StorageDirectoryProvider;
     @inject(TYPES.MediaService)
     private mediaService!: MediaService;
     @inject(TYPES.RendererGateway)
@@ -218,7 +220,7 @@ export default class WatchHistoryServiceImpl implements WatchHistoryService {
 
     public async create(filePaths: string[], concatLibrary = false): Promise<string[]> {
         if (concatLibrary) {
-            const lp = this.locationService.getDetailLibraryPath(LocationType.VIDEOS);
+            const lp = await this.storageDirectoryProvider.provideDirectory(StorageDirectoryTarget.VIDEOS);
             filePaths = filePaths.map((f) => path.join(lp, f));
         }
         return this.createInner(filePaths);
@@ -317,7 +319,7 @@ export default class WatchHistoryServiceImpl implements WatchHistoryService {
             toDeleteIds.push(record.id);
         }
         await Promise.all(toDeleteIds.map(id => this.deleteById(id)));
-        const libraryPath = this.locationService.getDetailLibraryPath(LocationType.VIDEOS);
+        const libraryPath = await this.storageDirectoryProvider.provideDirectory(StorageDirectoryTarget.VIDEOS);
         await FileUtil.cleanEmptyDirectories(libraryPath);
     }
 
@@ -534,7 +536,7 @@ export default class WatchHistoryServiceImpl implements WatchHistoryService {
      * @private
      */
     private async syncLibrary() {
-        const libraryPath = this.locationService.getDetailLibraryPath(LocationType.VIDEOS);
+        const libraryPath = await this.storageDirectoryProvider.provideDirectory(StorageDirectoryTarget.VIDEOS);
         if (!fs.existsSync(libraryPath)) {
             return;
         }
@@ -577,7 +579,7 @@ export default class WatchHistoryServiceImpl implements WatchHistoryService {
      * @private
      */
     private async deleteById(id: string) {
-        const libraryPath = this.locationService.getDetailLibraryPath(LocationType.VIDEOS);
+        const libraryPath = await this.storageDirectoryProvider.provideDirectory(StorageDirectoryTarget.VIDEOS);
         const record = await this.watchHistoryRepository.findById(id);
         if (!record) {
             return;

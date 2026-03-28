@@ -9,12 +9,14 @@ import Controller from '@/backend/adapters/controllers/Controller';
 import StrUtil from '@/common/utils/str-util';
 import TYPES from '@/backend/ioc/types';
 import OpenDialogOptions = Electron.OpenDialogOptions;
-import LocationService from '@/backend/application/services/LocationService';
 import WindowPort from '@/backend/application/ports/gateways/window/WindowPort';
 import SystemConfigService from '@/backend/application/services/SystemConfigService';
 import { UPDATE_TOAST_LAST_SHOWN_AT_KEY } from '@/common/constants/systemConfigKeys';
 import { UpdateCheckResult } from '@/common/types/update-check';
 import { RESET_DB_RESYNC_FLAG } from '@/common/constants/resetDb';
+import StorageDirectoryProvider, {
+    StorageDirectoryTarget,
+} from '@/backend/application/ports/gateways/storage/StorageDirectoryProvider';
 
 /**
  * eg: .mkv -> mkv
@@ -32,8 +34,8 @@ export default class SystemController implements Controller {
 
     @inject(TYPES.WindowPort)
     private windowPort!: WindowPort;
-    @inject(TYPES.LocationService)
-    private locationService!: LocationService;
+    @inject(TYPES.StorageDirectoryProvider)
+    private storageDirectoryProvider!: StorageDirectoryProvider;
     @inject(TYPES.SystemConfigService)
     private systemConfigService!: SystemConfigService;
 
@@ -146,8 +148,8 @@ export default class SystemController implements Controller {
      * - 目录异常时直接抛出显式错误，交由前端提示用户重新选择。
      */
     public async openCacheDir() {
-        this.locationService.assertLibraryAccessible();
-        await shell.openPath(this.locationService.getBaseLibraryPath());
+        const libraryRoot = await this.storageDirectoryProvider.provideDirectory(StorageDirectoryTarget.LIBRARY_ROOT);
+        await shell.openPath(libraryRoot);
     }
 
     public registerRoutes(): void {

@@ -14,7 +14,7 @@ export default abstract class AbstractOssServiceImpl<T> implements OssService<T>
     /**
      * 获取存储库的基本路径
      */
-    abstract getBasePath(): string;
+    abstract getBasePath(): Promise<string>;
 
     /**
      * 获取当前元数据版本
@@ -34,7 +34,7 @@ export default abstract class AbstractOssServiceImpl<T> implements OssService<T>
     abstract parseMetadata(metadata: unknown): OssBaseMeta & T | null;
 
     public async putFile(key: string, fileName: string, sourcePath: string) {
-        const clipDir = path.join(this.getBasePath(), key);
+        const clipDir = path.join(await this.getBasePath(), key);
         try {
             fs.mkdirSync(clipDir, { recursive: true });
             const destPath = path.join(clipDir, fileName);
@@ -46,7 +46,7 @@ export default abstract class AbstractOssServiceImpl<T> implements OssService<T>
     }
 
     public async delete(key: string) {
-        const clipDir = path.join(this.getBasePath(), key);
+        const clipDir = path.join(await this.getBasePath(), key);
         try {
             fs.rmSync(clipDir, { recursive: true, force: true });
         } catch (error) {
@@ -56,7 +56,7 @@ export default abstract class AbstractOssServiceImpl<T> implements OssService<T>
     }
 
     public async get(key: string): Promise<OssBaseMeta & T | null> {
-        const clipDir = path.join(this.getBasePath(), key);
+        const clipDir = path.join(await this.getBasePath(), key);
         try {
             const metadataPath = path.join(clipDir, this.METADATA_FILE);
             if (!fs.existsSync(metadataPath)) {
@@ -86,7 +86,7 @@ export default abstract class AbstractOssServiceImpl<T> implements OssService<T>
      * @param newMetadata 需要合并的新元数据。
      */
     public async updateMetadata(key: string, newMetadata: Partial<T>): Promise<void> {
-        const clipDir = path.join(this.getBasePath(), key);
+        const clipDir = path.join(await this.getBasePath(), key);
         const metadataPath = path.join(clipDir, this.METADATA_FILE);
         const tempMetadataPath = `${metadataPath}.tmp`;
         try {
@@ -120,7 +120,7 @@ export default abstract class AbstractOssServiceImpl<T> implements OssService<T>
     }
 
     public async list(): Promise<string[]> {
-        const basePath = this.getBasePath();
+        const basePath = await this.getBasePath();
         if (!fs.existsSync(basePath)) {
             return [];
         }

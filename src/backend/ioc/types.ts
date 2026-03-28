@@ -13,7 +13,7 @@ const TYPES = {
     SystemConfigService: Symbol('SystemConfigService'),
     CacheService: Symbol('CacheService'),
     SettingService: Symbol('SettingService'),
-    LocationService: Symbol('LocationService'),
+    StorageDirectoryProvider: Symbol('StorageDirectoryProvider'),
     DpTaskService: Symbol('DpTaskService'),
     ChatService: Symbol('ChatService'),
     ChatSessionService: Symbol('ChatSessionService'),
