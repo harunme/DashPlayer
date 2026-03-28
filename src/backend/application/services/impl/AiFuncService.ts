@@ -61,6 +61,7 @@ export default class AiFuncService {
     public async transcript(params: { filePath: string }): Promise<void> {
         const { filePath } = params;
         this.logger.info('Transcription task started', { filePath });
+        await this.storageDirectoryProvider.ensurePathAccessPermissionIfExists(filePath);
 
         this.rendererGateway.fireAndForget('transcript/batch-result', {
             updates: [{

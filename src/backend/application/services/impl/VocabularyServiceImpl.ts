@@ -6,6 +6,7 @@ import VocabularyService, { GetAllWordsParams, GetAllWordsResult, ExportTemplate
 import { VideoLearningService } from '@/backend/application/services/VideoLearningService';
 import { getMainLogger } from '@/backend/infrastructure/logger';
 import WordsRepository from '@/backend/application/ports/repositories/WordsRepository';
+import StorageDirectoryProvider from '@/backend/application/ports/gateways/storage/StorageDirectoryProvider';
 
 @injectable()
 export default class VocabularyServiceImpl implements VocabularyService {
@@ -15,6 +16,9 @@ export default class VocabularyServiceImpl implements VocabularyService {
 
     @inject(TYPES.WordsRepository)
     private wordsRepository!: WordsRepository;
+
+    @inject(TYPES.StorageDirectoryProvider)
+    private storageDirectoryProvider!: StorageDirectoryProvider;
 
     private readonly logger = getMainLogger('VocabularyServiceImpl');
 
@@ -94,6 +98,7 @@ export default class VocabularyServiceImpl implements VocabularyService {
 
     async importWords(filePath: string): Promise<ImportWordsResult> {
         try {
+            await this.storageDirectoryProvider.ensurePathAccessPermissionIfExists(filePath);
             // 读取Excel文件
             const fileBuffer = await fs.readFile(filePath);
             const workbook = XLSX.read(fileBuffer, { type: 'buffer' });

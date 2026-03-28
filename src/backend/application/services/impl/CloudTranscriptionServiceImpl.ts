@@ -61,6 +61,7 @@ export class CloudTranscriptionServiceImpl implements TranscriptionService {
         this.cancelRequested = false;
 
         try {
+            await this.storageDirectoryProvider.ensurePathAccessPermissionIfExists(filePath);
             this.sendProgress(0, filePath, 'init', 0);
             this.sendProgress(0, filePath, 'processing', 10);
 
@@ -152,6 +153,7 @@ export class CloudTranscriptionServiceImpl implements TranscriptionService {
             // 整理结果，生成 SRT 文件
             const srtName = filePath.replace(path.extname(filePath), '.srt');
             this.logger.info(`[CloudTranscriptionService] 生成 SRT 文件: ${srtName}`);
+            await this.storageDirectoryProvider.ensurePathAccessPermissionIfExists(srtName);
             fs.writeFileSync(srtName, SrtUtil.whisperChunksToSrt(context.chunks));
 
             // 完成任务，并保存状态

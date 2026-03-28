@@ -11,7 +11,6 @@ import TYPES from '@/backend/ioc/types';
 import {
     canRecoverAccessFromSelection,
     getDirectoryAccessStatus,
-    getFileAccessStatus,
     getStorageRootStatus,
     resolveStorageDirectory,
     StorageAccessTargetType,
@@ -46,7 +45,7 @@ export default class StorageDirectoryProviderImpl implements StorageDirectoryPro
     }
 
     /**
-     * 确保指定路径具备访问权限。
+     * 当路径已存在时，确保其所在位置具备访问权限。
      *
      * 使用约束：
      * - 仅用于存储目录体系之外的外部路径访问场景；
@@ -54,14 +53,19 @@ export default class StorageDirectoryProviderImpl implements StorageDirectoryPro
      *
      * @param targetPath 外部文件或文件夹绝对路径。
      */
-    public async ensurePathAccessPermission(targetPath: string): Promise<void> {
+    public async ensurePathAccessPermissionIfExists(targetPath: string): Promise<void> {
         const resolvedTargetPath = path.resolve(targetPath);
-        if (this.detectPathAccessTargetType(resolvedTargetPath) === 'directory') {
+        const targetType = this.detectExistingPathAccessTargetType(resolvedTargetPath);
+        if (targetType === null) {
+            return;
+        }
+
+        if (targetType === 'directory') {
             await this.ensureAccessibleWithRecovery(resolvedTargetPath);
             return;
         }
 
-        await this.ensureFileAccessible(resolvedTargetPath);
+        await this.ensureAccessibleWithRecovery(path.dirname(resolvedTargetPath));
     }
 
     /**
@@ -120,35 +124,6 @@ export default class StorageDirectoryProviderImpl implements StorageDirectoryPro
             await fs.mkdir(resolvedDirectoryPath, { recursive: true });
         }
     }
-
-    /**
-     * 确保文件可访问。
-     * @param filePath 文件路径。
-     */
-    private async ensureFileAccessible(filePath: string): Promise<void> {
-        const resolvedFilePath = path.resolve(filePath);
-        const parentDirectory = path.dirname(resolvedFilePath);
-
-        try {
-            await fs.mkdir(parentDirectory, { recursive: true });
-        } catch {
-            await this.ensureAccessibleWithRecovery(resolvedFilePath);
-            await fs.mkdir(parentDirectory, { recursive: true });
-            return;
-        }
-
-        const status = getFileAccessStatus(resolvedFilePath);
-        if (status.available) {
-            return;
-        }
-
-        if (status.code === 'not_file') {
-            throw new Error(status.message);
-        }
-
-        await this.ensureAccessibleWithRecovery(resolvedFilePath);
-    }
-
     /**
      * 在需要时引导用户恢复目标访问权限。
      *
@@ -161,7 +136,8 @@ export default class StorageDirectoryProviderImpl implements StorageDirectoryPro
      */
     private async ensureAccessibleWithRecovery(targetPath: string): Promise<void> {
         const resolvedTargetPath = path.resolve(targetPath);
-        const recoveryDirectoryPath = this.detectPathAccessTargetType(resolvedTargetPath) === 'directory'
+        const targetType = this.detectExistingPathAccessTargetType(resolvedTargetPath);
+        const recoveryDirectoryPath = targetType === 'directory'
             ? resolvedTargetPath
             : path.dirname(resolvedTargetPath);
         let needsRecheck = true;
@@ -250,7 +226,7 @@ export default class StorageDirectoryProviderImpl implements StorageDirectoryPro
      * @param targetPath 目标路径。
      * @returns 当前路径访问目标类型。
      */
-    private detectPathAccessTargetType(targetPath: string): StorageAccessTargetType {
+    private detectExistingPathAccessTargetType(targetPath: string): StorageAccessTargetType | null {
         try {
             const stat = fsSync.statSync(targetPath);
             if (stat.isDirectory()) {
@@ -259,8 +235,14 @@ export default class StorageDirectoryProviderImpl implements StorageDirectoryPro
             if (stat.isFile()) {
                 return 'file';
             }
-        } catch {
-            return 'file';
+        } catch (error) {
+            const errorCode = error instanceof Error && 'code' in error
+                ? (error as NodeJS.ErrnoException).code
+                : undefined;
+            if (errorCode === 'ENOENT') {
+                return null;
+            }
+            throw error;
         }
 
         throw new Error(`不支持的路径类型：${targetPath}`);

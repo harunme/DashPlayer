@@ -45,6 +45,7 @@ class WhisperServiceImpl implements WhisperService {
     public async transcript(taskId: number, filePath: string) {
         this.dpTaskService.process(taskId, { progress: '正在转换音频' });
         try {
+            await this.storageDirectoryProvider.ensurePathAccessPermissionIfExists(filePath);
             // 分配用于储存中间产生的文件夹
             const folder = await this.allocateFolder(filePath);
 
@@ -133,6 +134,7 @@ class WhisperServiceImpl implements WhisperService {
             // 整理结果，生成 SRT 文件
             const srtName = filePath.replace(path.extname(filePath), '.srt');
             this.logger.info(`[WhisperService] Task ID: ${taskId} - 生成 SRT 文件: ${srtName}`);
+            await this.storageDirectoryProvider.ensurePathAccessPermissionIfExists(srtName);
             fs.writeFileSync(srtName, SrtUtil.whisperChunksToSrt(context.chunks));
 
             // 完成任务，并保存状态

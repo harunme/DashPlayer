@@ -49,6 +49,7 @@ export default class MediaServiceImpl implements MediaService {
         width?: number;
         format?: 'jpg' | 'png';
     }): Promise<string> {
+        await this.storageDirectoryProvider.ensurePathAccessPermissionIfExists(sourceFilePath);
         if (!fs.existsSync(sourceFilePath)) {
             return '';
         }
@@ -89,6 +90,7 @@ export default class MediaServiceImpl implements MediaService {
 
 
     async duration(inputFile: string): Promise<number> {
+        await this.storageDirectoryProvider.ensurePathAccessPermissionIfExists(inputFile);
         if (!fs.existsSync(inputFile)) {
             return 0;
         }

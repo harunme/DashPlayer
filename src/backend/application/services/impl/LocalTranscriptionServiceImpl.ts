@@ -135,6 +135,7 @@ export class LocalTranscriptionServiceImpl implements TranscriptionService {
         let tempFolder: string | null = null;
 
         try {
+            await this.storageDirectoryProvider.ensurePathAccessPermissionIfExists(filePath);
             // 开始
             this.sendProgress(0, filePath, DpTaskState.INIT, 0);
             if (this.isCancelled(filePath)) throw new Error('Transcription cancelled by user');
@@ -254,6 +255,7 @@ export class LocalTranscriptionServiceImpl implements TranscriptionService {
 
         const finalSrt = SrtUtil.srtLinesToSrt(shiftedLines, { reindex: true });
         const srtFileName = filePath.replace(/\.[^/.]+$/, '') + '.srt';
+        await this.storageDirectoryProvider.ensurePathAccessPermissionIfExists(srtFileName);
         await fsPromises.writeFile(srtFileName, finalSrt);
 
         this.sendProgress(0, filePath, DpTaskState.DONE, 100, { srtPath: srtFileName });

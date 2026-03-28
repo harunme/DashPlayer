@@ -72,7 +72,7 @@ export class SubtitleServiceImpl implements SubtitleService {
         if (!fs.existsSync(path)) {
             throw new Error('file not exists');
         }
-        await this.storageDirectoryProvider.ensurePathAccessPermission(path);
+        await this.storageDirectoryProvider.ensurePathAccessPermissionIfExists(path);
         const content = await FileUtil.read(path);
         TypeGuards.assertNotNull(content, 'read file error');
         const hashKey = ObjUtil.hash(content);

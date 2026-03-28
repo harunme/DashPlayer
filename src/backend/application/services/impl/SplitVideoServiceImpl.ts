@@ -38,6 +38,7 @@ class SplitVideoServiceImpl implements SplitVideoService {
         srtPath: string | null,
         chapters: ChapterParseResult[]
     }) {
+        await this.storageDirectoryProvider.ensurePathAccessPermissionIfExists(videoPath);
         const folderName = path.join(path.dirname(videoPath), path.basename(videoPath, path.extname(videoPath)));
         const splitVideos = await this.splitVideoPart(videoPath, chapters, folderName);
         if (StrUtil.isBlank(srtPath) || !fs.existsSync(srtPath)) {
@@ -63,7 +64,7 @@ class SplitVideoServiceImpl implements SplitVideoService {
             offset += duration;
         }
 
-        await this.storageDirectoryProvider.ensurePathAccessPermission(srtPath);
+        await this.storageDirectoryProvider.ensurePathAccessPermissionIfExists(srtPath);
         const content = await FileUtil.read(srtPath);
         if (content === null) {
             this.logger.error('read srt file failed');
@@ -89,6 +90,7 @@ class SplitVideoServiceImpl implements SplitVideoService {
     }
 
     private async splitVideoPart(videoPath: string, chapters: ChapterParseResult[], folderName: string) {
+        await this.storageDirectoryProvider.ensurePathAccessPermissionIfExists(folderName);
         if (!fs.existsSync(folderName)) {
             fs.mkdirSync(folderName, { recursive: true });
         }
