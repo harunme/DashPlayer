@@ -18,6 +18,7 @@ import { Input } from '@/fronted/components/ui/input';
 import { backendClient } from '@/fronted/application/bootstrap/backendClient';
 import { useTranslation as useI18nTranslation } from 'react-i18next';
 import { useAutoSaveSettingsForm } from '@/fronted/hooks/useAutoSaveSettingsForm';
+import { StorageStatusVO } from '@/common/types/vo/StorageStatusVO';
 
 const api = backendClient;
 
@@ -28,7 +29,8 @@ type StorageFormValues = {
 
 const StorageSetting = () => {
     const { t } = useI18nTranslation('settings');
-    const [size, setSize] = React.useState<string>('0 KB');
+    const [size, setSize] = React.useState<string>('--');
+    const [storageStatus, setStorageStatus] = React.useState<StorageStatusVO | null>(null);
     const storeValues = useSetting(
         useShallow((state) => ({
             path: state.values.get('storage.path') ?? '',
@@ -51,12 +53,34 @@ const StorageSetting = () => {
     });
 
     React.useEffect(() => {
-        const init = async () => {
-            const s = await api.call('storage/cache/size');
-            setSize(s);
+        const loadStorageStatus = async () => {
+            const nextStatus = await api.call('storage/status');
+            setStorageStatus(nextStatus);
+
+            if (!nextStatus.available) {
+                setSize('--');
+                return;
+            }
+
+            const nextSize = await api.call('storage/cache/size');
+            setSize(nextSize);
         };
-        init();
-    }, []);
+        loadStorageStatus().catch((error) => {
+            const message = error instanceof Error ? error.message : String(error);
+            setStorageStatus({
+                configuredPath: storeValues.path,
+                resolvedPath: storeValues.path,
+                exists: false,
+                isDirectory: false,
+                readable: false,
+                writable: false,
+                available: false,
+                code: 'missing',
+                message,
+            });
+            setSize('--');
+        });
+    }, [storeValues.path]);
 
     React.useEffect(() => {
         initialize(storeValues);
@@ -98,7 +122,9 @@ const StorageSetting = () => {
         await api.call('system/open-folder/cache');
     };
 
-    const canSyncCollections = !formState.isDirty && autoSaveStatus !== 'saving';
+    const libraryAvailable = storageStatus?.available ?? false;
+    const canSyncCollections = libraryAvailable && !formState.isDirty && autoSaveStatus !== 'saving';
+    const canOpenLibrary = libraryAvailable;
 
     return (
         <div className="w-full h-full min-h-0">
@@ -125,6 +151,7 @@ const StorageSetting = () => {
                             onClick={handleOpen}
                             variant="secondary"
                             type="button"
+                            disabled={!canOpenLibrary}
                         >
                             {t('storage.openLibraryFolder')}
                         </Button>

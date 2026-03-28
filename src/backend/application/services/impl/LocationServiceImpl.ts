@@ -1,9 +1,14 @@
 import path from 'path';
-import LocationService, { LocationType, ProgramType } from '@/backend/application/services/LocationService';
+import LocationService, {
+    AppStateLocationType,
+    LocationType,
+    ProgramType,
+} from '@/backend/application/services/LocationService';
 import { injectable } from 'inversify';
 
 import LocationUtil from '@/backend/utils/LocationUtil';
 import { getRuntimeResourcePath } from '@/backend/utils/runtimeEnv';
+import { StorageStatusVO } from '@/common/types/vo/StorageStatusVO';
 
 const DEFAULT_COLLECTION = 'default';
 
@@ -35,6 +40,37 @@ export default class LocationServiceImpl implements LocationService {
     getBaseClipPath(): string {
         const p = LocationUtil.staticGetStoragePath(LocationType.FAVORITE_CLIPS);
         return path.join(p, DEFAULT_COLLECTION);
+    }
+
+    /**
+     * 获取应用内部状态目录。
+     * @param type 内部状态目录类型。
+     * @returns 对应目录路径。
+     */
+    getAppStatePath(type: AppStateLocationType): string {
+        return LocationUtil.staticGetAppStatePath(type);
+    }
+
+    /**
+     * 获取当前媒体库健康状态。
+     * @param configuredPath 可选原始路径；不传时使用当前设置值。
+     * @returns 媒体库状态。
+     */
+    getLibraryStatus(configuredPath?: string): StorageStatusVO {
+        return LocationUtil.getLibraryStatus(configuredPath);
+    }
+
+    /**
+     * 断言媒体库可访问。
+     * @param configuredPath 可选原始路径；不传时使用当前设置值。
+     * @returns 校验通过后的媒体库状态。
+     */
+    assertLibraryAccessible(configuredPath?: string): StorageStatusVO {
+        const status = this.getLibraryStatus(configuredPath);
+        if (!status.available) {
+            throw new Error(status.message);
+        }
+        return status;
     }
 
     /**

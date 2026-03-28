@@ -11,11 +11,13 @@ import {
 } from '@/common/types/vo/service-credentials-setting-vo';
 import { EngineSelectionSettingVO } from '@/common/types/vo/engine-selection-setting-vo';
 import { ShortcutSettingDetailVO, ShortcutSettingSaveVO } from '@/common/types/vo/shortcut-setting-vo';
+import LocationService from '@/backend/application/services/LocationService';
 
 @injectable()
 export default class SettingsController implements Controller {
     @inject(TYPES.SettingService) private settingService!: SettingService;
     @inject(TYPES.SettingsKeyValueService) private settingsKeyValueService!: SettingsKeyValueService;
+    @inject(TYPES.LocationService) private locationService!: LocationService;
     private logger = getMainLogger('SettingsController');
 
     /**
@@ -132,9 +134,14 @@ export default class SettingsController implements Controller {
      *
      * 约束说明：
      * - 收藏集合固定使用 `default`，不再允许外部自定义集合名。
+     * - `path` 仅表示媒体库目录，不再承载数据库与日志目录。
      * - `params.collection` 会被忽略，仅保留以兼容现有 IPC 参数结构。
      */
     public async updateStorageSettings(params: { path: string; collection: string }): Promise<void> {
+        const nextPath = params.path.trim();
+        if (nextPath.length > 0) {
+            this.locationService.assertLibraryAccessible(nextPath);
+        }
         await this.settingsKeyValueService.set('storage.path', params.path);
         await this.settingsKeyValueService.set('storage.collection', 'default');
     }

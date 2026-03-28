@@ -4,10 +4,10 @@ import util from 'util';
 import log from 'electron-log/main';
 import { SimpleEvent, SimpleLevel } from '@/common/log/simple-types';
 import LocationUtil from '@/backend/utils/LocationUtil';
-import { LocationType } from '@/backend/application/services/LocationService';
+import { AppStateLocationType } from '@/backend/application/services/LocationService';
 import { isDevelopmentMode } from '@/backend/utils/runtimeEnv';
 
-const logPath = LocationUtil.staticGetStoragePath(LocationType.LOGS);
+const logPath = LocationUtil.staticGetAppStatePath(AppStateLocationType.LOGS);
 
 if (!fs.existsSync(logPath)) {
     fs.mkdirSync(logPath, { recursive: true });
