@@ -13,8 +13,10 @@ import {
 interface WordItem {
   id: number;
   word: string;
+  /** @deprecated 历史遗留字段，前端不应再依赖其业务含义。 */
   stem: string;
   translate: string;
+  /** @deprecated 历史遗留字段，前端不应再依赖其业务含义。 */
   note: string;
   created_at: string;
   updated_at: string;
@@ -52,8 +54,7 @@ export default function WordSidebar({
     const term = searchTerm.toLowerCase();
     return words.filter((word) =>
       word.word.toLowerCase().includes(term) ||
-      word.translate?.toLowerCase().includes(term) ||
-      word.stem?.toLowerCase().includes(term)
+      word.translate?.toLowerCase().includes(term)
     );
   }, [words, searchTerm]);
 
