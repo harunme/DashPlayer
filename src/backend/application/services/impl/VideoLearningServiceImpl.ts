@@ -615,33 +615,40 @@ export default class VideoLearningServiceImpl implements VideoLearningService {
 
         return entries
             .map((entry) => {
-                const base = typeof entry.base === 'string' ? entry.base.toLowerCase().trim() : '';
-                if (!base) {
+                const word = typeof entry.word === 'string' ? entry.word.toLowerCase().trim() : '';
+                if (!word) {
                     return null;
                 }
-                const forms = new Set<string>();
-                (entry.forms || []).forEach((form) => {
+                const matchedForms = new Set<string>();
+                (entry.matchedForms || []).forEach((form) => {
                     const normalizedForm = typeof form === 'string' ? form.toLowerCase().trim() : '';
                     if (normalizedForm) {
-                        forms.add(normalizedForm);
+                        matchedForms.add(normalizedForm);
                     }
                 });
-                if (!forms.size) {
-                    forms.add(base);
+                if (!matchedForms.size) {
+                    matchedForms.add(word);
                 }
                 return {
-                    base,
-                    forms: Array.from(forms)
+                    word,
+                    matchedForms: Array.from(matchedForms)
                 };
             })
             .filter((entry): entry is ClipVocabularyEntry => entry !== null);
     }
 
-    private async buildVocabularyEntriesFromClip(
-        clip: OssBaseMeta & ClipMeta & { sourceType: 'oss' | 'local' },
+    /**
+     * 基于片段字幕与基础词列表，生成播放器高亮所需的词形映射。
+     *
+     * @param lines 片段字幕行。
+     * @param baseWords 片段关联的基础词。
+     * @returns 词汇映射结果。
+     */
+    private async buildVocabularyEntriesFromLines(
+        lines: ClipSrtLine[] | undefined | null,
         baseWords: string[]
     ): Promise<ClipVocabularyEntry[]> {
-        if (!clip?.clip_content || clip.clip_content.length === 0) {
+        if (!lines || lines.length === 0) {
             return [];
         }
 
@@ -658,14 +665,14 @@ export default class VideoLearningServiceImpl implements VideoLearningService {
         }
 
         const baseSet = new Set(normalizedBaseWords);
-        const englishLines = clip.clip_content
+        const englishLines = lines
             .map((line) => line.contentEn || '')
             .filter((line) => typeof line === 'string' && line.trim().length > 0);
 
         if (englishLines.length === 0) {
-            return normalizedBaseWords.map((base) => ({
-                base,
-                forms: [base]
+            return normalizedBaseWords.map((word) => ({
+                word,
+                matchedForms: [word]
             }));
         }
 
@@ -674,30 +681,41 @@ export default class VideoLearningServiceImpl implements VideoLearningService {
 
         matchResults.forEach((matches) => {
             matches.forEach((match) => {
-                const base = (match.databaseWord?.word || match.normalized || match.stem || '').toLowerCase().trim();
-                if (!base || !baseSet.has(base)) {
+                const word = (match.databaseWord?.word || match.normalized || '').toLowerCase().trim();
+                if (!word || !baseSet.has(word)) {
                     return;
                 }
-                const form = (match.original || match.normalized || '').toLowerCase().trim();
-                if (!entryMap.has(base)) {
-                    entryMap.set(base, new Set<string>());
+                const matchedForm = (match.original || match.normalized || '').toLowerCase().trim();
+                if (!entryMap.has(word)) {
+                    entryMap.set(word, new Set<string>());
                 }
-                if (form) {
-                    entryMap.get(base)!.add(form);
+                if (matchedForm) {
+                    entryMap.get(word)!.add(matchedForm);
                 }
             });
         });
 
-        baseSet.forEach((base) => {
-            if (!entryMap.has(base)) {
-                entryMap.set(base, new Set([base]));
+        baseSet.forEach((word) => {
+            if (!entryMap.has(word)) {
+                entryMap.set(word, new Set([word]));
             }
         });
 
-        return Array.from(entryMap.entries()).map(([base, forms]) => ({
-            base,
-            forms: Array.from(forms)
+        return Array.from(entryMap.entries()).map(([word, matchedForms]) => ({
+            word,
+            matchedForms: Array.from(matchedForms)
         }));
+    }
+
+    /**
+     * 为单个片段生成词汇高亮映射。
+     *
+     * @param lines 片段字幕行。
+     * @param words 片段关联的基础词。
+     * @returns 词汇映射结果。
+     */
+    public async resolveClipVocabulary(lines: ClipSrtLine[], words: string[]): Promise<ClipVocabularyEntry[]> {
+        return await this.buildVocabularyEntriesFromLines(lines, words);
     }
 
     private buildVocabularyEntriesFromMatchedWords(baseWords: string[] | undefined | null): ClipVocabularyEntry[] {
@@ -713,9 +731,9 @@ export default class VideoLearningServiceImpl implements VideoLearningService {
             )
         );
 
-        return normalizedBaseWords.map((base) => ({
-            base,
-            forms: [base],
+        return normalizedBaseWords.map((word) => ({
+            word,
+            matchedForms: [word],
         }));
     }
 
@@ -808,10 +826,7 @@ export default class VideoLearningServiceImpl implements VideoLearningService {
                 const wordMap = await this.getClipWordsMap(completedWithSourceType.map(clip => clip.key));
                 completedVOs = await Promise.all(
                     completedWithSourceType.map(async (clip) => {
-                        const vocabulary = await this.buildVocabularyEntriesFromClip(
-                            clip,
-                            wordMap.get(clip.key) ?? []
-                        );
+                        const vocabulary = this.buildVocabularyEntriesFromMatchedWords(wordMap.get(clip.key) ?? []);
                         return this.convertToVideoLearningClipVO(clip, vocabulary);
                     })
                 );

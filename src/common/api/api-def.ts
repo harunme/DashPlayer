@@ -265,6 +265,10 @@ interface VideoLearningDef {
         params: SimpleClipQuery,
         return: { success: boolean; data: VideoLearningClipPage }
     };
+    'video-learning/resolve-clip-vocabulary': {
+        params: { lines: ClipMeta['clip_content']; words: string[] },
+        return: { success: boolean; data: VideoLearningClipPage['items'][number]['vocabulary'] }
+    };
     'video-learning/sync-from-oss': {
         params: void,
         return: { success: boolean }

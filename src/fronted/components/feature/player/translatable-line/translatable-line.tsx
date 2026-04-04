@@ -70,7 +70,7 @@ const TranslatableLine = ({
         >
             {text.split(/(\s+|[.,!?;:"()])/).filter(Boolean).map((part, partIndex) => {
                 const partId = `${textHash}:${partIndex}`;
-                const isWord = /^[a-zA-Z]+$/.test(part);
+                const isWord = /^[a-zA-Z]+(?:-[a-zA-Z]+)*$/.test(part);
 
                 if (isWord) {
                     return (

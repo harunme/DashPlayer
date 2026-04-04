@@ -1,5 +1,6 @@
 import { SimpleClipQuery } from '@/common/api/dto';
-import { VideoLearningClipPage } from '@/common/types/vo/VideoLearningClipVO';
+import { ClipSrtLine } from '@/common/types/clipMeta';
+import { ClipVocabularyEntry, VideoLearningClipPage } from '@/common/types/vo/VideoLearningClipVO';
 import { GlobalVideoLearningClipQueueStatusVO, VideoLearningClipStatusVO } from '@/common/types/vo/VideoLearningClipStatusVO';
 
 /**
@@ -29,6 +30,15 @@ export interface VideoLearningService {
      * @returns Promise<VideoLearningClipPage>
      */
     search(query: SimpleClipQuery): Promise<VideoLearningClipPage>;
+
+    /**
+     * 为当前片段解析词汇高亮所需的词形映射。
+     *
+     * @param lines 当前片段字幕行。
+     * @param words 片段关联的基础词列表。
+     * @returns 词汇映射结果。
+     */
+    resolveClipVocabulary(lines: ClipSrtLine[], words: string[]): Promise<ClipVocabularyEntry[]>;
 
 
 

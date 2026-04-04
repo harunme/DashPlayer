@@ -3,12 +3,17 @@ import { inject, injectable } from 'inversify';
 import {MatchedWord, WordMatchService} from '@/backend/application/services/WordMatchService';
 import TYPES from '@/backend/ioc/types';
 import WordsRepository from '@/backend/application/ports/repositories/WordsRepository';
-import { CompromiseMatchCandidateExtractor, MatchCandidate, MatchCandidateExtractor } from '@/backend/application/kernel/language/MatchCandidateExtractor';
+import {
+    CompromiseVocabularyMatcher,
+    VocabularyEntry,
+    VocabularyMatcher,
+} from '@/backend/application/kernel/language/VocabularyMatcher';
 
 @injectable()
 export default class WordMatchServiceImpl implements WordMatchService {
 
-    private readonly matchCandidateExtractor: MatchCandidateExtractor = new CompromiseMatchCandidateExtractor();
+    private vocabularyWordsCache: Word[] | null = null;
+    private vocabularyMatcherCache: VocabularyMatcher<Word> | null = null;
 
     @inject(TYPES.WordsRepository)
     private wordsRepository!: WordsRepository;
@@ -28,104 +33,64 @@ export default class WordMatchServiceImpl implements WordMatchService {
             return texts.map(() => []);
         }
 
-        const vocabIndex = this.buildVocabIndex(vocabularyWords);
+        const vocabularyMatcher = this.getVocabularyMatcher(vocabularyWords);
 
-        return texts.map(text => this.matchSingleText(text, vocabIndex));
+        return texts.map(text => this.matchSingleText(text, vocabularyMatcher));
     }
 
     /**
-     * 匹配单段文本中的词表单词。
+     * 获取词表匹配器缓存。
+     *
+     * @param vocabularyWords 当前词表快照。
+     * @returns 已编译的词表匹配器。
+     */
+    private getVocabularyMatcher(vocabularyWords: Word[]): VocabularyMatcher<Word> {
+        if (this.vocabularyMatcherCache) {
+            return this.vocabularyMatcherCache;
+        }
+
+        const entries: VocabularyEntry<Word>[] = vocabularyWords.map((word) => ({
+            text: word.word,
+            payload: word,
+        }));
+        this.vocabularyMatcherCache = new CompromiseVocabularyMatcher(entries);
+        return this.vocabularyMatcherCache;
+    }
+
+    /**
+     * 匹配单段文本中的词表词条。
      *
      * 行为说明：
-     * - 优先使用 compromise 分词。
-     * - 若分词不可用，则退回到正则提取英文单词。
+     * - 统一交给词表匹配器处理。
+     * - 单词词条与词组词条会自动走各自的匹配策略。
      *
      * @param text 待匹配文本。
-     * @param vocabIndex 词表索引。
-     * @returns 命中的单词列表。
+     * @param vocabularyMatcher 已编译的词表匹配器。
+     * @returns 命中的词条列表。
      */
-    private matchSingleText(text: string, vocabIndex: Map<string, Word>): MatchedWord[] {
+    private matchSingleText(text: string, vocabularyMatcher: VocabularyMatcher<Word>): MatchedWord[] {
         if (!text || typeof text !== 'string' || text.trim().length === 0) {
             return [];
         }
 
-        const candidates = this.matchCandidateExtractor.extract(text);
-        return this.matchCandidates(candidates, vocabIndex);
-    }
-
-    /**
-     * 构建运行时词表索引。
-     *
-     * 行为说明：
-     * - 仅基于 `word` 本身的运行时推导结果构建索引。
-     * - 不再依赖数据库中的 `stem` 字段，兼容逻辑统一放在运行时。
-     *
-     * @param vocabularyWords 词表单词。
-     * @returns 运行时匹配索引。
-     */
-    private buildVocabIndex(vocabularyWords: Word[]): Map<string, Word> {
-        const index = new Map<string, Word>();
-
-        for (const word of vocabularyWords) {
-            const [forms] = this.matchCandidateExtractor.extract(word.word);
-            if (!forms || forms.forms.length === 0) {
-                continue;
-            }
-
-            for (const form of forms.forms) {
-                index.set(form, word);
-            }
-        }
-
-        return index;
-    }
-
-    /**
-     * 按候选形态优先级在索引中查找单词。
-     *
-     * @param forms 候选形态列表。
-     * @param vocabIndex 词表索引。
-     * @returns 命中的词条。
-     */
-    private findMatchingWordInIndex(forms: string[], vocabIndex: Map<string, Word>): Word | undefined {
-        for (const form of forms) {
-            const matchedWord = vocabIndex.get(form);
-            if (matchedWord) {
-                return matchedWord;
-            }
-        }
-
-        return undefined;
-    }
-
-    /**
-     * 逐个候选项执行词表匹配。
-     *
-     * @param candidates 匹配候选项。
-     * @param vocabIndex 词表索引。
-     * @returns 命中结果。
-     */
-    private matchCandidates(candidates: MatchCandidate[], vocabIndex: Map<string, Word>): MatchedWord[] {
-        const matchedWords: MatchedWord[] = [];
-
-        for (const candidate of candidates) {
-            const matchedWord = this.findMatchingWordInIndex(candidate.forms, vocabIndex);
-            if (!matchedWord) {
-                continue;
-            }
-
-            matchedWords.push({
-                original: candidate.original,
-                normalized: candidate.forms[1] ?? candidate.forms[0] ?? '',
-                stem: candidate.forms[2] ?? candidate.forms[1] ?? candidate.forms[0] ?? '',
-                databaseWord: matchedWord,
-            });
-        }
-
-        return matchedWords;
+        return vocabularyMatcher.match(text).map((match) => ({
+            original: match.original,
+            normalized: match.normalized,
+            databaseWord: match.payload,
+        }));
     }
 
     async getVocabularyWords(): Promise<Word[]> {
-        return await this.wordsRepository.getAll();
+        if (this.vocabularyWordsCache) {
+            return this.vocabularyWordsCache;
+        }
+
+        this.vocabularyWordsCache = await this.wordsRepository.getAll();
+        return this.vocabularyWordsCache;
+    }
+
+    invalidateVocabularyCache(): void {
+        this.vocabularyWordsCache = null;
+        this.vocabularyMatcherCache = null;
     }
 }
