@@ -35,13 +35,13 @@ export default class WordsRepositoryImpl implements WordsRepository {
      * @param values 导入后的完整单词列表。
      */
     public async replaceAll(values: InsertWord[]): Promise<void> {
-        await db.transaction(async (tx) => {
-            await tx.delete(words);
+        db.transaction((tx) => {
+            tx.delete(words).run();
             if (values.length === 0) {
                 return;
             }
 
-            await tx.insert(words).values(values);
+            tx.insert(words).values(values).run();
         });
     }
 }

@@ -302,11 +302,9 @@ export default function VideoLearningPage() {
   }, []);
 
   // 导入单词
-  const importWords = useCallback(async (file: File) => {
+  const importWords = useCallback(async (filePath: string) => {
     setLoading(true);
     try {
-      const fileWithPath = file as File & { path?: string };
-      const filePath = fileWithPath.path;
       if (!filePath) {
         alert('导入失败：无法读取文件路径');
         return;

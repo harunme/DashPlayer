@@ -4,6 +4,7 @@ import { inject, injectable } from 'inversify';
 import TYPES from '@/backend/ioc/types';
 import VocabularyService, { GetAllWordsParams, GetAllWordsResult, ExportTemplateResult, ImportWordsResult } from '@/backend/application/services/VocabularyService';
 import { VideoLearningService } from '@/backend/application/services/VideoLearningService';
+import { WordMatchService } from '@/backend/application/services/WordMatchService';
 import { getMainLogger } from '@/backend/infrastructure/logger';
 import WordsRepository from '@/backend/application/ports/repositories/WordsRepository';
 import StorageDirectoryProvider from '@/backend/application/ports/gateways/storage/StorageDirectoryProvider';
@@ -20,6 +21,9 @@ export default class VocabularyServiceImpl implements VocabularyService {
 
     @inject(TYPES.WordsRepository)
     private wordsRepository!: WordsRepository;
+
+    @inject(TYPES.WordMatchService)
+    private wordMatchService!: WordMatchService;
 
     @inject(TYPES.StorageDirectoryProvider)
     private storageDirectoryProvider!: StorageDirectoryProvider;
@@ -44,6 +48,39 @@ export default class VocabularyServiceImpl implements VocabularyService {
         ];
 
         return worksheet;
+    }
+
+    /**
+     * 为默认词表工作表补充恢复说明区域。
+     *
+     * 行为说明：
+     * - 说明放在右侧独立单元格，不遮挡词表正文。
+     * - 单元格正文只显示简短标题，详细说明通过批注展示。
+     *
+     * @param worksheet 默认词表工作表。
+     */
+    private addDefaultVocabularyRestoreNote(worksheet: XLSX.WorkSheet): void {
+        worksheet.D1 = {
+            t: 's',
+            v: '恢复说明',
+            c: [
+                {
+                    a: 'DashPlayer',
+                    t: '如果想恢复默认词表，可以把这一页的内容复制到第一个工作表“单词管理”里，然后再导入。'
+                }
+            ]
+        };
+
+        const range = XLSX.utils.decode_range(worksheet['!ref'] ?? 'A1');
+        range.e.c = Math.max(range.e.c, 3);
+        range.e.r = Math.max(range.e.r, 0);
+        worksheet['!ref'] = XLSX.utils.encode_range(range);
+
+        const baseCols = worksheet['!cols'] ?? [];
+        baseCols[0] = baseCols[0] ?? { wch: 25 };
+        baseCols[1] = baseCols[1] ?? { wch: 50 };
+        baseCols[3] = baseCols[3] ?? { wch: 12 };
+        worksheet['!cols'] = baseCols;
     }
 
     /**
@@ -139,7 +176,9 @@ export default class VocabularyServiceImpl implements VocabularyService {
 
             const wb = XLSX.utils.book_new();
             XLSX.utils.book_append_sheet(wb, this.createVocabularyWorksheet(currentVocabularyRows), '单词管理');
-            XLSX.utils.book_append_sheet(wb, this.createVocabularyWorksheet(defaultVocabularyRows), '默认词表');
+            const defaultWorksheet = this.createVocabularyWorksheet(defaultVocabularyRows);
+            this.addDefaultVocabularyRestoreNote(defaultWorksheet);
+            XLSX.utils.book_append_sheet(wb, defaultWorksheet, '默认词表');
 
             const excelBuffer = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' });
 
@@ -197,6 +236,7 @@ export default class VocabularyServiceImpl implements VocabularyService {
             const removedCount = existingWords.filter((item) => !importedWordSet.has(item.word)).length;
 
             await this.wordsRepository.replaceAll(importedWords);
+            this.wordMatchService.invalidateVocabularyCache();
 
             try {
                 await this.videoLearningService.syncFromOss();
