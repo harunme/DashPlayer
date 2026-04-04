@@ -176,7 +176,7 @@
             "tableUsage": "Used by",
             "tableAction": "Action",
             "usageNone": "Not used",
-            "addPlaceholder": "Enter model id, e.g. gpt-5.2",
+            "addPlaceholder": "Enter model id, e.g. gpt-5.4-nano",
             "addButton": "Add",
             "usedByHint": "Models used by features cannot be deleted.",
             "duplicateModel": "Model already exists: {{model}}"

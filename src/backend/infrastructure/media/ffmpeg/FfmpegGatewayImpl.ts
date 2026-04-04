@@ -1,4 +1,4 @@
-import { inject, injectable } from 'inversify';
+import { injectable } from 'inversify';
 import ffmpeg from 'fluent-ffmpeg';
 import FfmpegGateway, {
     ConvertToWavArgs,
@@ -11,14 +11,13 @@ import FfmpegGateway, {
     TrimAudioArgs,
     TrimVideoArgs,
 } from '@/backend/application/ports/gateways/media/FfmpegGateway';
-import LocationService, { ProgramType } from '@/backend/application/services/LocationService';
-import TYPES from '@/backend/ioc/types';
 import { VideoInfo } from '@/common/types/video-info';
 import fs from 'fs';
 import path from 'path';
 import { getMainLogger } from '@/backend/infrastructure/logger';
 import { DefaultFfmpegCommandBuilder, FfmpegCommandBuilder } from '@/backend/infrastructure/media/ffmpeg/FfmpegCommandBuilder';
 import { FfmpegProcessRunner } from '@/backend/infrastructure/media/ffmpeg/FfmpegProcessRunner';
+import { getRuntimeResourcePath } from '@/backend/utils/runtimeEnv';
 
 /**
  * FFprobe 视频流元数据。
@@ -72,15 +71,12 @@ export default class FfmpegGatewayImpl implements FfmpegGateway {
     /**
      * 构造 FFmpeg 网关。
      */
-    constructor(
-        @inject(TYPES.LocationService) private readonly locationService: LocationService,
-        deps: FfmpegGatewayDeps = {},
-    ) {
+    constructor(deps: FfmpegGatewayDeps = {}) {
         this.commandBuilder = deps.commandBuilder ?? new DefaultFfmpegCommandBuilder();
         this.runner = deps.runner ?? new FfmpegProcessRunner();
 
-        ffmpeg.setFfmpegPath(this.locationService.getThirdLibPath(ProgramType.FFMPEG));
-        ffmpeg.setFfprobePath(this.locationService.getThirdLibPath(ProgramType.FFPROBE));
+        ffmpeg.setFfmpegPath(getRuntimeResourcePath('lib', 'ffmpeg'));
+        ffmpeg.setFfprobePath(getRuntimeResourcePath('lib', 'ffprobe'));
     }
 
     /**
@@ -234,7 +230,7 @@ export default class FfmpegGatewayImpl implements FfmpegGateway {
     private async executeCommand(commandArgs: string[], options: FfmpegRunOptions): Promise<void> {
         const runningTask = this.runner.start(
             {
-                ffmpegPath: this.locationService.getThirdLibPath(ProgramType.FFMPEG),
+                ffmpegPath: getRuntimeResourcePath('lib', 'ffmpeg'),
                 args: commandArgs,
                 inputDurationSecond: options.inputDurationSecond,
             },

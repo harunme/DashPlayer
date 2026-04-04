@@ -7,14 +7,15 @@ import TYPES from '@/backend/ioc/types';
 import { SettingsStore } from '@/backend/application/ports/gateways/SettingsStore';
 import * as path from 'path';
 import * as fsPromises from 'fs/promises';
-import LocationUtil from '@/backend/utils/LocationUtil';
-import {LocationType} from '@/backend/application/services/LocationService';
 import FfmpegService from '@/backend/application/services/FfmpegService';
 import {getMainLogger} from '@/backend/infrastructure/logger';
 import objectHash from 'object-hash';
 import SrtUtil, {SrtLine} from '@/common/utils/SrtUtil';
 import {DpTaskState} from "@/backend/infrastructure/db/tables/dpTask";
 import WhisperGateway from '@/backend/application/ports/gateways/media/WhisperGateway';
+import StorageDirectoryProvider, {
+    StorageDirectoryTarget,
+} from '@/backend/application/ports/gateways/storage/StorageDirectoryProvider';
 
 @injectable()
 export class LocalTranscriptionServiceImpl implements TranscriptionService {
@@ -39,11 +40,16 @@ export class LocalTranscriptionServiceImpl implements TranscriptionService {
         @inject(TYPES.FfmpegService) private ffmpegService: FfmpegService,
         @inject(TYPES.RendererGateway) private rendererGateway: RendererGateway,
         @inject(TYPES.WhisperGateway) private whisperGateway: WhisperGateway,
+        @inject(TYPES.StorageDirectoryProvider) private storageDirectoryProvider: StorageDirectoryProvider,
     ) {}
 
+    /**
+     * 确保输入音频转换为 WAV。
+     * @param inputPath 原始输入文件。
+     * @returns 转换后的 WAV 文件路径。
+     */
     private async ensureWavFormat(inputPath: string): Promise<string> {
-        const tempDir = LocationUtil.staticGetStoragePath(LocationType.TEMP);
-        await fsPromises.mkdir(tempDir, {recursive: true});
+        const tempDir = await this.storageDirectoryProvider.provideDirectory(StorageDirectoryTarget.TEMP);
         const out = path.join(tempDir, `converted_${Date.now()}_${Math.random().toString(36).slice(2)}.wav`);
         await this.ffmpegService.convertToWav(inputPath, out);
         return out;
@@ -129,6 +135,7 @@ export class LocalTranscriptionServiceImpl implements TranscriptionService {
         let tempFolder: string | null = null;
 
         try {
+            await this.storageDirectoryProvider.ensurePathAccessPermissionIfExists(filePath);
             // 开始
             this.sendProgress(0, filePath, DpTaskState.INIT, 0);
             if (this.isCancelled(filePath)) throw new Error('Transcription cancelled by user');
@@ -150,7 +157,8 @@ export class LocalTranscriptionServiceImpl implements TranscriptionService {
             // 临时目录
             // 包含时间戳，避免同一文件并发任务相互覆盖
             const folderName = objectHash(`${filePath}::${Date.now()}`);
-            tempFolder = path.join(LocationUtil.staticGetStoragePath(LocationType.TEMP), 'parakeet', folderName);
+            const tempRoot = await this.storageDirectoryProvider.provideDirectory(StorageDirectoryTarget.TEMP);
+            tempFolder = path.join(tempRoot, 'parakeet', folderName);
             await fsPromises.mkdir(tempFolder, {recursive: true});
 
             // 本地 whisper.cpp CLI 走内置语言自动检测（-l auto），无需额外语言检测步骤
@@ -196,7 +204,7 @@ export class LocalTranscriptionServiceImpl implements TranscriptionService {
         const enableVad = true;
         const vadModel = 'silero-v6.2.0' as const;
 
-        const modelsRoot = LocationUtil.staticGetStoragePath('models');
+        const modelsRoot = await this.storageDirectoryProvider.provideDirectory(StorageDirectoryTarget.MODELS);
 
         this.sendProgress(0, filePath, DpTaskState.IN_PROGRESS, 10, { message: 'whisper.cpp 正在识别...' });
         const progressFromWhisperPercent = (p: number) => Math.max(10, Math.min(90, Math.floor(10 + p * 0.8)));
@@ -247,6 +255,7 @@ export class LocalTranscriptionServiceImpl implements TranscriptionService {
 
         const finalSrt = SrtUtil.srtLinesToSrt(shiftedLines, { reindex: true });
         const srtFileName = filePath.replace(/\.[^/.]+$/, '') + '.srt';
+        await this.storageDirectoryProvider.ensurePathAccessPermissionIfExists(srtFileName);
         await fsPromises.writeFile(srtFileName, finalSrt);
 
         this.sendProgress(0, filePath, DpTaskState.DONE, 100, { srtPath: srtFileName });

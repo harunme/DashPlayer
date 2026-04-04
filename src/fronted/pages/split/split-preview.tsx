@@ -19,6 +19,10 @@ import { useTranslation as useI18nTranslation } from 'react-i18next';
 
 const logger = getRendererLogger('SplitRow');
 
+/**
+ * 切分结果预览表。
+ * 当标题较长或窗口较窄时，优先在表格内部换行/滚动，避免把父布局撑宽。
+ */
 const SplitRow = ({ line, shortDurationLabel }: { line: TaskChapterParseResult; shortDurationLabel: string }) => {
     logger.debug('Rendering split row', {
         timestampStart: line.timestampStart,
@@ -60,12 +64,19 @@ const SplitRow = ({ line, shortDurationLabel }: { line: TaskChapterParseResult; 
                 </TooltipProvider>
             </TableCell>
             <TableCell
-                className={cn('text-sm', StrUtil.isBlank(line.title) && 'bg-red-100 dark:bg-red-950')}
+                className={cn(
+                    'text-sm break-words whitespace-normal',
+                    StrUtil.isBlank(line.title) && 'bg-red-100 dark:bg-red-950'
+                )}
             >{line.title}</TableCell>
         </TableRow>
     );
 };
 
+/**
+ * 展示切分结果的预览内容。
+ * 负责在无数据时展示空态，在有数据时展示可横向滚动的表格。
+ */
 const SplitPreview = ({ className }: {
     className?: string;
 }) => {
@@ -81,7 +92,7 @@ const SplitPreview = ({ className }: {
     }
 
     return (
-        <Table className={cn('w-full', className)}>
+        <Table className={cn('min-w-0 w-full table-fixed', className)}>
             <TableHeader>
                 <TableRow>
                     <TableHead className="w-24">{t('sentenceSplitter.preview.startTime')}</TableHead>

@@ -35,8 +35,6 @@ import VideoLearningOssServiceImpl from '@/backend/application/services/impl/Vid
 import { VideoLearningService } from '@/backend/application/services/VideoLearningService';
 import VideoLearningServiceImpl from '@/backend/application/services/impl/VideoLearningServiceImpl';
 import VideoLearningApiController from '@/backend/adapters/controllers/VideoLearningApiController';
-import LocationServiceImpl from '@/backend/application/services/impl/LocationServiceImpl';
-import LocationService from '@/backend/application/services/LocationService';
 import FfmpegService from '@/backend/application/services/FfmpegService';
 import FfmpegServiceImpl from '@/backend/application/services/impl/FfmpegServiceImpl';
 import DpTaskService from '@/backend/application/services/DpTaskService';
@@ -119,6 +117,8 @@ import SysConfRepository from '@/backend/application/ports/repositories/SysConfR
 import SysConfRepositoryImpl from '@/backend/infrastructure/db/repositories/SysConfRepositoryImpl';
 import SubtitleTimestampAdjustmentsRepository from '@/backend/application/ports/repositories/SubtitleTimestampAdjustmentsRepository';
 import SubtitleTimestampAdjustmentsRepositoryImpl from '@/backend/infrastructure/db/repositories/SubtitleTimestampAdjustmentsRepositoryImpl';
+import StorageDirectoryProvider from '@/backend/application/ports/gateways/storage/StorageDirectoryProvider';
+import StorageDirectoryProviderImpl from '@/backend/infrastructure/storage/StorageDirectoryProviderImpl';
 
 
 const container = new Container();
@@ -177,7 +177,7 @@ container.bind<SubtitleService>(TYPES.SubtitleService).to(SubtitleServiceImpl).i
 container.bind<SystemConfigService>(TYPES.SystemConfigService).to(SystemConfigServiceImpl).inSingletonScope();
 container.bind<CacheService>(TYPES.CacheService).to(CacheServiceImpl).inSingletonScope();
 container.bind<SettingService>(TYPES.SettingService).to(SettingServiceImpl).inSingletonScope();
-container.bind<LocationService>(TYPES.LocationService).to(LocationServiceImpl).inSingletonScope();
+container.bind<StorageDirectoryProvider>(TYPES.StorageDirectoryProvider).to(StorageDirectoryProviderImpl).inSingletonScope();
 container.bind<FfmpegGateway>(TYPES.FfmpegGateway).to(FfmpegGatewayImpl).inSingletonScope();
 container.bind<FfmpegService>(TYPES.FfmpegService).to(FfmpegServiceImpl).inSingletonScope();
 container.bind<DpTaskService>(TYPES.DpTaskService).to(DpTaskServiceImpl).inSingletonScope();

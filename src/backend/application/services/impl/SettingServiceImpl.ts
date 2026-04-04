@@ -19,8 +19,10 @@ import {
 } from '@/common/types/vo/service-credentials-setting-vo';
 import { EngineSelectionSettingVO } from '@/common/types/vo/engine-selection-setting-vo';
 import { getSubtitleDefaultStyle } from '@/common/constants/openaiSubtitlePrompts';
-import LocationUtil from '@/backend/utils/LocationUtil';
 import ModelRoutingService from '@/backend/application/services/ModelRoutingService';
+import StorageDirectoryProvider, {
+    StorageDirectoryTarget,
+} from '@/backend/application/ports/gateways/storage/StorageDirectoryProvider';
 
 @injectable()
 export default class SettingServiceImpl implements SettingService {
@@ -30,6 +32,7 @@ export default class SettingServiceImpl implements SettingService {
     @inject(TYPES.YouDaoClientProvider) private youDaoProvider!: ClientProviderService<YouDaoDictionaryClient>;
     @inject(TYPES.SettingsStore) private settingsStore!: SettingsStore;
     @inject(TYPES.ModelRoutingService) private modelRoutingService!: ModelRoutingService;
+    @inject(TYPES.StorageDirectoryProvider) private storageDirectoryProvider!: StorageDirectoryProvider;
     private logger = getMainLogger('SettingServiceImpl');
 
     private async setValue(key: SettingKey, value: string): Promise<void> {
@@ -147,15 +150,24 @@ export default class SettingServiceImpl implements SettingService {
         return candidate;
     }
 
-    private whisperModelPathForCurrentSize(): { modelSize: 'base' | 'large'; modelPath: string } {
+    /**
+     * 获取当前所选 Whisper 模型文件路径。
+     * @returns 模型大小与对应文件路径。
+     */
+    private async whisperModelPathForCurrentSize(): Promise<{ modelSize: 'base' | 'large'; modelPath: string }> {
         const modelSize = this.getValue('whisper.modelSize') === 'large' ? 'large' : 'base';
         const modelTag = modelSize === 'large' ? 'large-v3' : 'base';
-        const modelPath = path.join(LocationUtil.staticGetStoragePath('models'), 'whisper', `ggml-${modelTag}.bin`);
+        const modelsRoot = await this.storageDirectoryProvider.provideDirectory(StorageDirectoryTarget.MODELS);
+        const modelPath = path.join(modelsRoot, 'whisper', `ggml-${modelTag}.bin`);
         return { modelSize, modelPath };
     }
 
-    private isWhisperModelReady(): { ready: boolean; modelSize: 'base' | 'large'; modelPath: string } {
-        const { modelSize, modelPath } = this.whisperModelPathForCurrentSize();
+    /**
+     * 判断当前所选 Whisper 模型是否已准备完成。
+     * @returns 模型就绪状态与路径信息。
+     */
+    private async isWhisperModelReady(): Promise<{ ready: boolean; modelSize: 'base' | 'large'; modelPath: string }> {
+        const { modelSize, modelPath } = await this.whisperModelPathForCurrentSize();
         return {
             ready: fs.existsSync(modelPath),
             modelSize,
@@ -334,7 +346,7 @@ export default class SettingServiceImpl implements SettingService {
             throw new Error('models.openai.available 为空，无法保存功能模型选择');
         }
         if (transcriptionEngine === 'whisper') {
-            const whisperStatus = this.isWhisperModelReady();
+        const whisperStatus = await this.isWhisperModelReady();
             if (!whisperStatus.ready) {
                 throw new Error(`Whisper 模型未下载：${whisperStatus.modelSize}。请先下载模型（${whisperStatus.modelPath}）`);
             }
