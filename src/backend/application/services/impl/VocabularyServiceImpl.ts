@@ -94,9 +94,7 @@ export default class VocabularyServiceImpl implements VocabularyService {
                 data: wordsResult.map(word => ({
                     id: word.id,
                     word: word.word,
-                    stem: word.stem || '',
                     translate: word.translate || '',
-                    note: word.note || '',
                     created_at: word.created_at,
                     updated_at: word.updated_at
                 }))

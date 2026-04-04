@@ -11,17 +11,9 @@ export interface DefaultVocabularyWord {
      */
     word: string;
     /**
-     * @deprecated 历史遗留字段。当前运行时匹配不再依赖该字段。
-     */
-    stem?: string;
-    /**
      * 单词释义。
      */
     translate?: string;
-    /**
-     * @deprecated 历史遗留字段。当前业务流程未再消费该字段。
-     */
-    note?: string;
 }
 
 const DEFAULT_VOCABULARY_JSONL_FILE_NAME = 'default-vocabulary.jsonl';
@@ -49,13 +41,11 @@ export const loadDefaultVocabulary = async (): Promise<DefaultVocabularyWord[]> 
         if (!raw || typeof raw !== 'object') continue;
 
         const item = raw as Partial<DefaultVocabularyWord>;
-        if (!item.word || typeof item.word !== 'string') continue;
+        if (!item.word) continue;
 
         results.push({
             word: item.word,
-            stem: item.stem,
             translate: item.translate,
-            note: item.note,
         });
     }
 

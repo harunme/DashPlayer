@@ -24,11 +24,7 @@ import { useTranslation as useI18nTranslation } from 'react-i18next';
 interface WordItem {
   id: number;
   word: string;
-  /** @deprecated 历史遗留字段，前端不应再依赖其业务含义。 */
-  stem: string;
   translate: string;
-  /** @deprecated 历史遗留字段，前端不应再依赖其业务含义。 */
-  note: string;
   created_at: string;
   updated_at: string;
   videoCount?: number;

@@ -1,13 +1,14 @@
 import { Word } from '@/backend/infrastructure/db/tables/words';
-import nlp from 'compromise';
 import { inject, injectable } from 'inversify';
 import {MatchedWord, WordMatchService} from '@/backend/application/services/WordMatchService';
 import TYPES from '@/backend/ioc/types';
 import WordsRepository from '@/backend/application/ports/repositories/WordsRepository';
-import { deriveWordForms } from '@/backend/utils/wordForms';
+import { CompromiseMatchCandidateExtractor, MatchCandidate, MatchCandidateExtractor } from '@/backend/application/kernel/language/MatchCandidateExtractor';
 
 @injectable()
 export default class WordMatchServiceImpl implements WordMatchService {
+
+    private readonly matchCandidateExtractor: MatchCandidateExtractor = new CompromiseMatchCandidateExtractor();
 
     @inject(TYPES.WordsRepository)
     private wordsRepository!: WordsRepository;
@@ -48,22 +49,8 @@ export default class WordMatchServiceImpl implements WordMatchService {
             return [];
         }
 
-        try {
-            const doc = nlp(text);
-            if (!doc || !doc.terms) {
-                return this.fallbackWordMatch(text, vocabIndex);
-            }
-
-            const terms = doc.terms();
-            const termList = terms.out('array');
-            if (!termList || termList.length === 0) {
-                return this.fallbackWordMatch(text, vocabIndex);
-            }
-
-            return this.matchTerms(termList, vocabIndex);
-        } catch (error) {
-            return this.fallbackWordMatch(text, vocabIndex);
-        }
+        const candidates = this.matchCandidateExtractor.extract(text);
+        return this.matchCandidates(candidates, vocabIndex);
     }
 
     /**
@@ -80,15 +67,13 @@ export default class WordMatchServiceImpl implements WordMatchService {
         const index = new Map<string, Word>();
 
         for (const word of vocabularyWords) {
-            const forms = deriveWordForms(word.word);
-            const aliases = new Set([
-                forms.lower,
-                forms.normalized,
-                forms.stem,
-            ].filter(Boolean));
+            const [forms] = this.matchCandidateExtractor.extract(word.word);
+            if (!forms || forms.forms.length === 0) {
+                continue;
+            }
 
-            for (const alias of aliases) {
-                index.set(alias, word);
+            for (const form of forms.forms) {
+                index.set(form, word);
             }
         }
 
@@ -96,66 +81,48 @@ export default class WordMatchServiceImpl implements WordMatchService {
     }
 
     /**
-     * 按归一化优先级在索引中查找单词。
+     * 按候选形态优先级在索引中查找单词。
      *
-     * @param original 原始小写词形。
-     * @param normalized 词形还原结果。
-     * @param stem 简化词干结果。
+     * @param forms 候选形态列表。
      * @param vocabIndex 词表索引。
      * @returns 命中的词条。
      */
-    private findMatchingWordInIndex(original: string, normalized: string, stem: string, vocabIndex: Map<string, Word>): Word | undefined {
-        return vocabIndex.get(original) || vocabIndex.get(normalized) || vocabIndex.get(stem);
+    private findMatchingWordInIndex(forms: string[], vocabIndex: Map<string, Word>): Word | undefined {
+        for (const form of forms) {
+            const matchedWord = vocabIndex.get(form);
+            if (matchedWord) {
+                return matchedWord;
+            }
+        }
+
+        return undefined;
     }
 
     /**
-     * 逐个 term 执行词表匹配。
+     * 逐个候选项执行词表匹配。
      *
-     * @param terms 候选词数组。
+     * @param candidates 匹配候选项。
      * @param vocabIndex 词表索引。
      * @returns 命中结果。
      */
-    private matchTerms(terms: string[], vocabIndex: Map<string, Word>): MatchedWord[] {
+    private matchCandidates(candidates: MatchCandidate[], vocabIndex: Map<string, Word>): MatchedWord[] {
         const matchedWords: MatchedWord[] = [];
-        const processedTerms = new Set<string>();
 
-        for (const term of terms) {
-            if (!term || typeof term !== 'string') {
-                continue;
-            }
-
-            const forms = deriveWordForms(term);
-            if (!forms.lower || forms.lower.length < 2 || processedTerms.has(forms.lower)) {
-                continue;
-            }
-
-            processedTerms.add(forms.lower);
-            const matchedWord = this.findMatchingWordInIndex(forms.lower, forms.normalized, forms.stem, vocabIndex);
+        for (const candidate of candidates) {
+            const matchedWord = this.findMatchingWordInIndex(candidate.forms, vocabIndex);
             if (!matchedWord) {
                 continue;
             }
 
             matchedWords.push({
-                original: term,
-                normalized: forms.normalized,
-                stem: forms.stem,
+                original: candidate.original,
+                normalized: candidate.forms[1] ?? candidate.forms[0] ?? '',
+                stem: candidate.forms[2] ?? candidate.forms[1] ?? candidate.forms[0] ?? '',
                 databaseWord: matchedWord,
             });
         }
 
         return matchedWords;
-    }
-
-    /**
-     * 在分词失败时，使用正则提取英文单词后继续走统一匹配流程。
-     *
-     * @param text 待匹配文本。
-     * @param vocabIndex 词表索引。
-     * @returns 命中结果。
-     */
-    private fallbackWordMatch(text: string, vocabIndex: Map<string, Word>): MatchedWord[] {
-        const terms = text.match(/[a-zA-Z]+/g) ?? [];
-        return this.matchTerms(terms, vocabIndex);
     }
 
     async getVocabularyWords(): Promise<Word[]> {

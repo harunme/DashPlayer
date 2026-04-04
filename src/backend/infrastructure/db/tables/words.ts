@@ -5,12 +5,12 @@ export const words = sqliteTable('dp_words', {
     id: integer('id', { mode: 'number' }).primaryKey({ autoIncrement: true }),
     word: text('word').notNull().unique(),
     /**
-     * @deprecated 历史遗留字段。当前匹配逻辑统一改为运行时推导，不再依赖该字段。
+     * 历史遗留字段；新逻辑请勿继续依赖。
      */
     stem: text('stem'),
     translate: text('translate'),
     /**
-     * @deprecated 历史遗留字段。当前业务流程未再消费该字段，保留仅为兼容既有表结构。
+     * 历史遗留字段；新逻辑请勿继续依赖。
      */
     note: text('note'),
     created_at: text('created_at')
