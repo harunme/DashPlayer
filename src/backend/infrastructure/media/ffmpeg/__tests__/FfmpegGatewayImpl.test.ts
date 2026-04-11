@@ -1,6 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import FfmpegGatewayImpl from '@/backend/infrastructure/media/ffmpeg/FfmpegGatewayImpl';
-import { ProgramType } from '@/backend/application/services/LocationService';
 import type { FfmpegCommandBuilder } from '@/backend/infrastructure/media/ffmpeg/FfmpegCommandBuilder';
 import type { FfmpegProcessRunner } from '@/backend/infrastructure/media/ffmpeg/FfmpegProcessRunner';
 import fs from 'fs';
@@ -26,11 +25,14 @@ vi.mock('@/backend/infrastructure/logger', () => ({
     }),
 }));
 
+vi.mock('@/backend/utils/runtimeEnv', () => ({
+    getRuntimeResourcePath: (...parts: string[]) => (parts[1] === 'ffprobe' ? '/bin/ffprobe' : '/bin/ffmpeg'),
+}));
+
 /**
  * 测试依赖替身集合。
  */
 interface GatewayTestDeps {
-    locationService: { getThirdLibPath: ReturnType<typeof vi.fn> };
     commandBuilder: FfmpegCommandBuilder;
     startMock: ReturnType<typeof vi.fn>;
     cancelMock: ReturnType<typeof vi.fn>;
@@ -40,10 +42,6 @@ interface GatewayTestDeps {
  * 构建带依赖替身的网关实例。
  */
 function createGateway(): { gateway: FfmpegGatewayImpl; deps: GatewayTestDeps } {
-    const locationService = {
-        getThirdLibPath: vi.fn((type: ProgramType) => (type === ProgramType.FFMPEG ? '/bin/ffmpeg' : '/bin/ffprobe')),
-    };
-
     const commandBuilder = {
         buildSplitVideo: vi.fn(() => ['-split']),
         buildSplitVideoByTimes: vi.fn(() => ['-split-times']),
@@ -74,7 +72,7 @@ function createGateway(): { gateway: FfmpegGatewayImpl; deps: GatewayTestDeps } 
         start: startMock,
     } as unknown as FfmpegProcessRunner;
 
-    const gateway = new FfmpegGatewayImpl(locationService as never, {
+    const gateway = new FfmpegGatewayImpl({
         commandBuilder,
         runner,
     });
@@ -82,7 +80,6 @@ function createGateway(): { gateway: FfmpegGatewayImpl; deps: GatewayTestDeps } 
     return {
         gateway,
         deps: {
-            locationService,
             commandBuilder,
             startMock,
             cancelMock,
@@ -96,10 +93,8 @@ describe('FfmpegGatewayImpl', () => {
     });
 
     it('初始化时应设置 ffmpeg 与 ffprobe 路径', () => {
-        const { deps } = createGateway();
+        createGateway();
 
-        expect(deps.locationService.getThirdLibPath).toHaveBeenCalledWith(ProgramType.FFMPEG);
-        expect(deps.locationService.getThirdLibPath).toHaveBeenCalledWith(ProgramType.FFPROBE);
         expect(setFfmpegPathMock).toHaveBeenCalledWith('/bin/ffmpeg');
         expect(setFfprobePathMock).toHaveBeenCalledWith('/bin/ffprobe');
     });

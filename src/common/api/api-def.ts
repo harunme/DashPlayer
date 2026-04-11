@@ -26,6 +26,7 @@ import { EngineSelectionSettingVO } from '@/common/types/vo/engine-selection-set
 import { ShortcutSettingDetailVO, ShortcutSettingSaveVO } from '@/common/types/vo/shortcut-setting-vo';
 import { WhisperModelStatusVO, WhisperModelSize, WhisperVadModel } from '@/common/types/vo/whisper-model-vo';
 import { VideoInfo } from '@/common/types/video-info';
+import { StorageStatusVO } from '@/common/types/vo/StorageStatusVO';
 
 interface ApiDefinition {
     'eg': { params: string, return: number },
@@ -151,6 +152,7 @@ interface StorageDef {
     'storage/put': { params: { key: SettingKey, value: string }, return: void };
     'storage/get': { params: SettingKey, return: string };
     'storage/cache/size': { params: void, return: string };
+    'storage/status': { params: void, return: StorageStatusVO };
     'storage/collection/paths': { params: void, return: string[] };
 }
 
@@ -262,6 +264,10 @@ interface VideoLearningDef {
     'video-learning/search': {
         params: SimpleClipQuery,
         return: { success: boolean; data: VideoLearningClipPage }
+    };
+    'video-learning/resolve-clip-vocabulary': {
+        params: { lines: ClipMeta['clip_content']; words: string[] },
+        return: { success: boolean; data: VideoLearningClipPage['items'][number]['vocabulary'] }
     };
     'video-learning/sync-from-oss': {
         params: void,

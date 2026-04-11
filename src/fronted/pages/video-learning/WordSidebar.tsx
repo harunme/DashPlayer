@@ -9,13 +9,12 @@ import {
   TooltipProvider,
   TooltipTrigger
 } from '@/fronted/components/ui/tooltip';
+import { backendClient } from '@/fronted/application/bootstrap/backendClient';
 
 interface WordItem {
   id: number;
   word: string;
-  stem: string;
   translate: string;
-  note: string;
   created_at: string;
   updated_at: string;
   videoCount?: number;
@@ -30,7 +29,7 @@ type Props = {
   onWordClick: (word: WordItem) => void;
   onClearSelection: () => void;
   onExportTemplate: () => void;
-  onImportWords: (file: File) => void;
+  onImportWords: (filePath: string) => void;
 };
 
 export default function WordSidebar({
@@ -44,7 +43,6 @@ export default function WordSidebar({
   onExportTemplate,
   onImportWords,
 }: Props) {
-  const fileRef = useRef<HTMLInputElement>(null);
   const virtuosoRef = useRef<VirtuosoHandle>(null);
 
   const filteredWords = useMemo(() => {
@@ -52,13 +50,17 @@ export default function WordSidebar({
     const term = searchTerm.toLowerCase();
     return words.filter((word) =>
       word.word.toLowerCase().includes(term) ||
-      word.translate?.toLowerCase().includes(term) ||
-      word.stem?.toLowerCase().includes(term)
+      word.translate?.toLowerCase().includes(term)
     );
   }, [words, searchTerm]);
 
-  const handleImportClick = () => {
-    fileRef.current?.click();
+  const handleImportClick = async () => {
+    const selectedFiles = await backendClient.call('system/select-file', ['.xlsx', '.xls']);
+    const filePath = selectedFiles?.[0];
+    if (!filePath) {
+      return;
+    }
+    onImportWords(filePath);
   };
 
   const handleShowAll = () => {
@@ -73,15 +75,6 @@ export default function WordSidebar({
     }
   };
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      onImportWords(file);
-      e.target.value = '';
-    }
-  };
-
-  
   return (
     <div className="h-full flex flex-col">
       {/* 顶部工具栏 */}
@@ -160,13 +153,6 @@ export default function WordSidebar({
             </Tooltip>
           </div>
         </TooltipProvider>
-        <input
-          ref={fileRef}
-          type="file"
-          accept=".xlsx,.xls"
-          className="hidden"
-          onChange={handleFileChange}
-        />
       </div>
 
       {/* 列表区域：使用虚拟列表，占满剩余高度 */}

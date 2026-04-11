@@ -3,11 +3,16 @@ import registerRoute from '@/backend/adapters/ipc/registerRoute';
 import { inject, injectable } from 'inversify';
 import TYPES from '@/backend/ioc/types';
 import Controller from '@/backend/adapters/controllers/Controller';
+import StorageDirectoryProvider, {
+    StorageDirectoryTarget,
+} from '@/backend/application/ports/gateways/storage/StorageDirectoryProvider';
 
 @injectable()
 export default class VideoLearningApiController implements Controller {
     @inject(TYPES.VideoLearningService)
     private videoLearningService!: VideoLearningService;
+    @inject(TYPES.StorageDirectoryProvider)
+    private storageDirectoryProvider!: StorageDirectoryProvider;
 
     registerRoutes(): void {
         registerRoute('video-learning/detect-clip-status', async (params) => {
@@ -44,8 +49,14 @@ export default class VideoLearningApiController implements Controller {
             return { success: true, data: result };
         });
 
+        registerRoute('video-learning/resolve-clip-vocabulary', async (params) => {
+            const data = await this.videoLearningService.resolveClipVocabulary(params.lines, params.words);
+            return { success: true, data };
+        });
+
 
         registerRoute('video-learning/sync-from-oss', async () => {
+            await this.storageDirectoryProvider.provideDirectory(StorageDirectoryTarget.WORD_VIDEO);
             await this.videoLearningService.syncFromOss();
             return { success: true };
         });

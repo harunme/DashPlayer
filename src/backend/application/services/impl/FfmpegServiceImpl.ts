@@ -9,6 +9,7 @@ import { getMainLogger } from '@/backend/infrastructure/logger';
 import { VideoInfo } from '@/common/types/video-info';
 import { CancelByUserError } from '@/backend/application/errors/errors';
 import FfmpegGateway from '@/backend/application/ports/gateways/media/FfmpegGateway';
+import StorageDirectoryProvider from '@/backend/application/ports/gateways/storage/StorageDirectoryProvider';
 
 /**
  * FFmpeg 业务服务实现。
@@ -20,6 +21,9 @@ export default class FfmpegServiceImpl implements FfmpegService {
 
     @inject(TYPES.FfmpegGateway)
     private ffmpegGateway!: FfmpegGateway;
+
+    @inject(TYPES.StorageDirectoryProvider)
+    private storageDirectoryProvider!: StorageDirectoryProvider;
 
     private readonly logger = getMainLogger('FfmpegServiceImpl');
 
@@ -38,6 +42,8 @@ export default class FfmpegServiceImpl implements FfmpegService {
         endSecond: number,
         outputFile: string,
     }): Promise<void> {
+        await this.storageDirectoryProvider.ensurePathAccessPermissionIfExists(inputFile);
+        await this.storageDirectoryProvider.ensurePathAccessPermissionIfExists(outputFile);
         await this.ffmpegGateway.splitVideo({
             inputFile,
             startSecond,
@@ -61,6 +67,8 @@ export default class FfmpegServiceImpl implements FfmpegService {
         outputFolder: string,
         outputFilePrefix: string,
     }): Promise<string[]> {
+        await this.storageDirectoryProvider.ensurePathAccessPermissionIfExists(inputFile);
+        await this.storageDirectoryProvider.ensurePathAccessPermissionIfExists(outputFolder);
         const outputPattern = path.join(outputFolder, `${outputFilePrefix}_%03d${path.extname(inputFile)}`);
 
         await this.ffmpegGateway.splitVideoByTimes({
@@ -77,6 +85,7 @@ export default class FfmpegServiceImpl implements FfmpegService {
      */
     @WithSemaphore('ffprobe')
     public async duration(filePath: string): Promise<number> {
+        await this.storageDirectoryProvider.ensurePathAccessPermissionIfExists(filePath);
         return await this.ffmpegGateway.duration(filePath);
     }
 
@@ -85,6 +94,7 @@ export default class FfmpegServiceImpl implements FfmpegService {
      */
     @WithSemaphore('ffprobe')
     public async getVideoInfo(filePath: string): Promise<VideoInfo> {
+        await this.storageDirectoryProvider.ensurePathAccessPermissionIfExists(filePath);
         return await this.ffmpegGateway.getVideoInfo(filePath);
     }
 
@@ -111,6 +121,8 @@ export default class FfmpegServiceImpl implements FfmpegService {
             format?: 'jpg' | 'png';
         },
     }): Promise<void> {
+        await this.storageDirectoryProvider.ensurePathAccessPermissionIfExists(inputFile);
+        await this.storageDirectoryProvider.ensurePathAccessPermissionIfExists(outputFolder);
         const totalDuration = Number.isFinite(inputDuration) ? Number(inputDuration) : await this.duration(inputFile);
         const actualTime = Math.min(time, totalDuration);
 
@@ -160,6 +172,8 @@ export default class FfmpegServiceImpl implements FfmpegService {
         segmentTime: number,
         onProgress?: (percent: number) => void,
     }): Promise<string[]> {
+        await this.storageDirectoryProvider.ensurePathAccessPermissionIfExists(inputFile);
+        await this.storageDirectoryProvider.ensurePathAccessPermissionIfExists(outputFolder);
         const outputPattern = path.join(outputFolder, 'output_%03d.mp3');
         const inputDurationSecond = await this.duration(inputFile);
 
@@ -199,7 +213,9 @@ export default class FfmpegServiceImpl implements FfmpegService {
         inputFile: string,
         onProgress?: (progress: number) => void,
     }): Promise<string> {
+        await this.storageDirectoryProvider.ensurePathAccessPermissionIfExists(inputFile);
         const outputFile = inputFile.replace(path.extname(inputFile), '.mp4');
+        await this.storageDirectoryProvider.ensurePathAccessPermissionIfExists(outputFile);
         const inputDurationSecond = await this.duration(inputFile);
 
         await this.ffmpegGateway.toMp4(inputFile, outputFile, {
@@ -226,6 +242,8 @@ export default class FfmpegServiceImpl implements FfmpegService {
         onProgress?: (progress: number) => void,
     }): Promise<string> {
         const finalOutputFile = outputFile ?? inputFile.replace(path.extname(inputFile), '.mp4');
+        await this.storageDirectoryProvider.ensurePathAccessPermissionIfExists(inputFile);
+        await this.storageDirectoryProvider.ensurePathAccessPermissionIfExists(finalOutputFile);
         const inputDurationSecond = await this.duration(inputFile);
 
         await this.runCancelableTask(
@@ -265,6 +283,8 @@ export default class FfmpegServiceImpl implements FfmpegService {
     }): Promise<string> {
         const finalOutputFile = outputFile ?? inputFile.replace(path.extname(inputFile), '.srt');
         const mapRule = en ? '0:s:m:language:eng?' : '0:s:0?';
+        await this.storageDirectoryProvider.ensurePathAccessPermissionIfExists(inputFile);
+        await this.storageDirectoryProvider.ensurePathAccessPermissionIfExists(finalOutputFile);
 
         await this.runCancelableTask(
             taskId,
@@ -297,6 +317,8 @@ export default class FfmpegServiceImpl implements FfmpegService {
         endTime: number,
         outputPath: string,
     ): Promise<void> {
+        await this.storageDirectoryProvider.ensurePathAccessPermissionIfExists(inputPath);
+        await this.storageDirectoryProvider.ensurePathAccessPermissionIfExists(outputPath);
         await this.ffmpegGateway.trimVideo({
             inputFile: inputPath,
             outputFile: outputPath,
@@ -316,6 +338,8 @@ export default class FfmpegServiceImpl implements FfmpegService {
      */
     @WithSemaphore('ffmpeg')
     public async convertToWav(inputPath: string, outputPath: string): Promise<void> {
+        await this.storageDirectoryProvider.ensurePathAccessPermissionIfExists(inputPath);
+        await this.storageDirectoryProvider.ensurePathAccessPermissionIfExists(outputPath);
         await this.ffmpegGateway.convertToWav({
             inputFile: inputPath,
             outputFile: outputPath,
@@ -339,6 +363,8 @@ export default class FfmpegServiceImpl implements FfmpegService {
             return;
         }
 
+        await this.storageDirectoryProvider.ensurePathAccessPermissionIfExists(inputPath);
+        await this.storageDirectoryProvider.ensurePathAccessPermissionIfExists(outputPath);
         await this.ffmpegGateway.trimAudio({
             inputFile: inputPath,
             outputFile: outputPath,
@@ -361,6 +387,8 @@ export default class FfmpegServiceImpl implements FfmpegService {
     }): Promise<string[]> {
         const { inputFile, ranges } = args;
         const prefix = args.outputFilePrefix ?? 'segment_';
+        await this.storageDirectoryProvider.ensurePathAccessPermissionIfExists(inputFile);
+        await this.storageDirectoryProvider.ensurePathAccessPermissionIfExists(args.outputFolder);
 
         if (!fs.existsSync(args.outputFolder)) {
             await fs.promises.mkdir(args.outputFolder, { recursive: true });

@@ -10,6 +10,8 @@ import { convertClipSrtLinesToSentences } from '@/fronted/lib/clipToSentenceConv
 import { useVocabularyState } from '@/fronted/hooks/useVocabulary';
 import { Sentence } from '@/common/types/SentenceC';
 import { ClipSrtLine } from '@/common/types/clipMeta';
+import { backendClient } from '@/fronted/application/bootstrap/backendClient';
+import { ClipVocabularyEntry } from '@/common/types/vo/VideoLearningClipVO';
 
 const SubtitleListWithProgress = memo(function SubtitleListWithProgress({
   lines,
@@ -95,6 +97,7 @@ export default function VideoPlayerPane({
   const pendingHighlightRef = useRef<{ fileHash?: string; index: number } | null>(null);
   const autoPlayRef = useRef(false);
   const lineIdxRef = useRef(lineIdx);
+  const resolvedVocabularyCacheRef = useRef<Record<string, ClipVocabularyEntry[]>>({});
 
   useEffect(() => {
     lineIdxRef.current = lineIdx;
@@ -188,30 +191,75 @@ export default function VideoPlayerPane({
       return;
     }
 
-    const vocabularyEntries = clip.vocabulary ?? [];
-    const baseWords: string[] = [];
-    const formMap: Record<string, string> = {};
+    /**
+     * 将词汇条目同步到前端词汇 store，供字幕高亮使用。
+     *
+     * @param entries 当前片段的词汇条目。
+     */
+    const syncVocabularyEntries = (entries: ClipVocabularyEntry[]) => {
+      const baseWords: string[] = [];
+      const formMap: Record<string, string> = {};
 
-    vocabularyEntries.forEach((entry) => {
-      const base = entry.base?.toLowerCase().trim();
-      if (!base) {
+      entries.forEach((entry) => {
+        const word = entry.word?.toLowerCase().trim();
+        if (!word) {
+          return;
+        }
+        if (!baseWords.includes(word)) {
+          baseWords.push(word);
+        }
+        (entry.matchedForms || []).forEach((form) => {
+          const normalizedForm = form?.toLowerCase().trim();
+          if (normalizedForm) {
+            formMap[normalizedForm] = word;
+          }
+        });
+      });
+
+      setVocabularyWords(baseWords);
+      setVocabularyForms(formMap);
+    };
+
+    const baseVocabularyEntries = clip.vocabulary ?? [];
+    syncVocabularyEntries(baseVocabularyEntries);
+
+    const normalizedWords = baseVocabularyEntries
+      .map((entry) => entry.word?.toLowerCase().trim())
+      .filter((word): word is string => !!word);
+    if (normalizedWords.length === 0) {
+      return () => {
+        clearVocabularyWords();
+      };
+    }
+
+    const cachedEntries = resolvedVocabularyCacheRef.current[clip.key];
+    if (cachedEntries) {
+      syncVocabularyEntries(cachedEntries);
+      return () => {
+        clearVocabularyWords();
+      };
+    }
+
+    let disposed = false;
+    const resolveVocabulary = async () => {
+      const result = await backendClient.call('video-learning/resolve-clip-vocabulary', {
+        lines: clip.clipContent,
+        words: normalizedWords,
+      });
+      if (!result.success || disposed) {
         return;
       }
-      if (!baseWords.includes(base)) {
-        baseWords.push(base);
-      }
-      (entry.forms || []).forEach((form) => {
-        const normalizedForm = form?.toLowerCase().trim();
-        if (normalizedForm) {
-          formMap[normalizedForm] = base;
-        }
-      });
+
+      resolvedVocabularyCacheRef.current[clip.key] = result.data;
+      syncVocabularyEntries(result.data);
+    };
+
+    resolveVocabulary().catch(() => {
+      // 保持基础词高亮即可，失败时不覆盖当前已回填的数据。
     });
 
-    setVocabularyWords(baseWords);
-    setVocabularyForms(formMap);
-
     return () => {
+      disposed = true;
       clearVocabularyWords();
     };
   }, [clip, setVocabularyWords, setVocabularyForms, clearVocabularyWords]);

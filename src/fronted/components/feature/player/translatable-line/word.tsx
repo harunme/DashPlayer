@@ -62,7 +62,7 @@ const Word = ({word, original, pop, requestPop, show, alwaysDark, classNames}: W
     const theme = useTransLineTheme();
 
     // 检查是否是词汇单词
-    const cleanWord = word.toLowerCase().replace(/[^\w]/g, '');
+    const cleanWord = word.toLowerCase().replace(/[^\w-]/g, '');
     const isVocabularyWord = cleanWord && vocabularyStore.isVocabularyWord(cleanWord);
 
     const hoverBg = classNames?.hover ?? (alwaysDark ? 'hover:bg-neutral-600' : theme.word.hoverBgClass);

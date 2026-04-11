@@ -11,6 +11,7 @@ import {
 } from '@/common/types/vo/service-credentials-setting-vo';
 import { EngineSelectionSettingVO } from '@/common/types/vo/engine-selection-setting-vo';
 import { ShortcutSettingDetailVO, ShortcutSettingSaveVO } from '@/common/types/vo/shortcut-setting-vo';
+import { getStorageRootStatus } from '@/backend/infrastructure/storage/StorageDirectorySupport';
 
 @injectable()
 export default class SettingsController implements Controller {
@@ -132,9 +133,17 @@ export default class SettingsController implements Controller {
      *
      * 约束说明：
      * - 收藏集合固定使用 `default`，不再允许外部自定义集合名。
+     * - `path` 仅表示媒体库目录，不再承载数据库与日志目录。
      * - `params.collection` 会被忽略，仅保留以兼容现有 IPC 参数结构。
      */
     public async updateStorageSettings(params: { path: string; collection: string }): Promise<void> {
+        const nextPath = params.path.trim();
+        if (nextPath.length > 0) {
+            const status = getStorageRootStatus(nextPath);
+            if (!status.available) {
+                throw new Error(status.message);
+            }
+        }
         await this.settingsKeyValueService.set('storage.path', params.path);
         await this.settingsKeyValueService.set('storage.collection', 'default');
     }
